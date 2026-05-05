@@ -6,8 +6,9 @@ from homeassistant.components.sensor import (
     SensorStateClass
 )
 from homeassistant.helpers.entity import EntityCategory
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.const import UnitOfPower
-from .const import DOMAIN, CONF_NAME
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -23,20 +24,20 @@ async def async_setup_entry(hass, entry, async_add_entities):
     """Maak alle sensoren aan voor de geselecteerde laadpaal."""
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     location_id = entry.data["location_id"]
-    custom_name = entry.data.get(CONF_NAME, f"Lader {location_id}")
+    device_name = entry.title # Gebruikt de naam die je in de UI hebt opgegeven
     
-    _LOGGER.info("Road.io: Start setup voor %s", custom_name)
+    _LOGGER.warning("Road.io: Setup gestart voor %s", device_name)
 
     if not coordinator.data:
-        _LOGGER.error("Road.io: Geen data in coordinator")
+        _LOGGER.error("Road.io: Geen data gevonden in de coordinator tijdens setup!")
         return
 
-    # Pak de lijst met locaties
+    # Zoek de locaties op in de data
     raw = coordinator.data
     locations = raw.get("data", []) if isinstance(raw, dict) else raw
     
-    if not locations or not isinstance(locations, list):
-        _LOGGER.error("Road.io: Geen locatielijst gevonden")
+    if not isinstance(locations, list) or not locations:
+        _LOGGER.error("Road.io: Kan geen locatielijst vinden in de ontvangen data.")
         return
 
     location_data = locations[0]
@@ -44,45 +45,46 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
     entities = []
 
-    # 1. Locatie sensoren
-    entities.append(RoadDiagnosticSensor(coordinator, location_id, custom_name, "Aanbieder"))
-    entities.append(RoadDiagnosticSensor(coordinator, location_id, custom_name, "Coördinaten"))
+    # 1. Algemene Informatie (Diagnostisch)
+    entities.append(RoadDiagnosticSensor(coordinator, location_id, device_name, "Aanbieder", "operator.name"))
+    entities.append(RoadDiagnosticSensor(coordinator, location_id, device_name, "Coördinaten", "coords"))
 
-    # 2. Per socket sensoren
+    # 2. Per Socket (Status, Vermogen, Prijs)
     for index, _ in enumerate(evses):
-        entities.append(RoadStatusSensor(coordinator, location_id, custom_name, index))
-        entities.append(RoadPowerSensor(coordinator, location_id, custom_name, index))
-        entities.append(RoadPriceSensor(coordinator, location_id, custom_name, index))
-        entities.append(RoadDiagnosticSensor(coordinator, location_id, custom_name, f"Socket {index + 1} Type", index))
+        entities.append(RoadStatusSensor(coordinator, location_id, device_name, index))
+        entities.append(RoadPowerSensor(coordinator, location_id, device_name, index))
+        entities.append(RoadPriceSensor(coordinator, location_id, device_name, index))
+        entities.append(RoadDiagnosticSensor(coordinator, location_id, device_name, f"Socket {index + 1} Type", "type", index))
 
     async_add_entities(entities)
-    _LOGGER.info("Road.io: %s entiteiten toegevoegd", len(entities))
+    _LOGGER.warning("Road.io: %s sensoren succesvol toegevoegd.", len(entities))
 
-class RoadBaseEntity(SensorEntity):
-    """Basis klasse voor Road entiteiten."""
+class RoadBaseEntity(CoordinatorEntity, SensorEntity):
+    """Basis klasse die luistert naar updates van de coordinator."""
     _attr_has_entity_name = True
 
-    def __init__(self, coordinator, location_id, custom_name, index=None):
-        self.coordinator = coordinator
+    def __init__(self, coordinator, location_id, device_name, index=None):
+        super().__init__(coordinator)
         self.location_id = location_id
+        self.device_name = device_name
         self.index = index
         self._attr_device_info = {
             "identifiers": {(DOMAIN, location_id)},
-            "name": custom_name,
+            "name": device_name,
             "manufacturer": "Road.io",
         }
 
     def _get_loc(self):
-        """Haal de eerste locatie veilig op."""
+        """Haalt veilig de locatiegegevens op uit de coordinator."""
         d = self.coordinator.data
         if not d: return {}
         locs = d.get("data", []) if isinstance(d, dict) else d
-        return locs[0] if locs else {}
+        return locs[0] if isinstance(locs, list) and locs else {}
 
 class RoadStatusSensor(RoadBaseEntity):
-    """Status van de lader."""
-    def __init__(self, coordinator, location_id, custom_name, index):
-        super().__init__(coordinator, location_id, custom_name, index)
+    """Status van de lader (Vrij/Bezet)."""
+    def __init__(self, coordinator, location_id, device_name, index):
+        super().__init__(coordinator, location_id, device_name, index)
         self._attr_unique_id = f"road_{location_id}_status_{index}"
         self._attr_name = f"Socket {index + 1}"
 
@@ -98,12 +100,13 @@ class RoadStatusSensor(RoadBaseEntity):
         return "mdi:ev-station" if self.native_value == "Vrij" else "mdi:car-electric"
 
 class RoadPowerSensor(RoadBaseEntity):
-    """Maximaal vermogen."""
+    """Maximaal laadvermogen in kW."""
     _attr_device_class = SensorDeviceClass.POWER
     _attr_native_unit_of_measurement = UnitOfPower.KILO_WATT
+    _attr_state_class = SensorStateClass.MEASUREMENT
 
-    def __init__(self, coordinator, location_id, custom_name, index):
-        super().__init__(coordinator, location_id, custom_name, index)
+    def __init__(self, coordinator, location_id, device_name, index):
+        super().__init__(coordinator, location_id, device_name, index)
         self._attr_unique_id = f"road_{location_id}_pwr_{index}"
         self._attr_name = f"Socket {index + 1} Max Vermogen"
 
@@ -113,12 +116,12 @@ class RoadPowerSensor(RoadBaseEntity):
         except: return None
 
 class RoadPriceSensor(RoadBaseEntity):
-    """Prijs incl BTW."""
+    """Prijs per kWh inclusief BTW."""
     _attr_device_class = SensorDeviceClass.MONETARY
     _attr_native_unit_of_measurement = "EUR/kWh"
 
-    def __init__(self, coordinator, location_id, custom_name, index):
-        super().__init__(coordinator, location_id, custom_name, index)
+    def __init__(self, coordinator, location_id, device_name, index):
+        super().__init__(coordinator, location_id, device_name, index)
         self._attr_unique_id = f"road_{location_id}_prc_{index}"
         self._attr_name = f"Socket {index + 1} Prijs"
 
@@ -131,12 +134,13 @@ class RoadPriceSensor(RoadBaseEntity):
         except: return None
 
 class RoadDiagnosticSensor(RoadBaseEntity):
-    """Diagnostische info."""
+    """Informatieve sensoren (Aanbieder, Type, Coördinaten)."""
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
-    def __init__(self, coordinator, location_id, custom_name, label, index=None):
-        super().__init__(coordinator, location_id, custom_name, index)
+    def __init__(self, coordinator, location_id, device_name, label, key, index=None):
+        super().__init__(coordinator, location_id, device_name, index)
         self._label = label
+        self._key = key
         suffix = f"_{index}" if index is not None else ""
         self._attr_unique_id = f"road_{location_id}_{label.lower().replace(' ', '_')}{suffix}"
         self._attr_name = label
@@ -144,12 +148,12 @@ class RoadDiagnosticSensor(RoadBaseEntity):
     @property
     def native_value(self):
         loc = self._get_loc()
-        if self._label == "Aanbieder":
+        if self._key == "operator.name":
             return loc.get("operator", {}).get("name")
-        if self._label == "Coördinaten":
+        if self._key == "coords":
             c = loc.get("geoLocation", {}).get("coordinates", [])
             return f"{c[1]}, {c[0]}" if len(c) == 2 else None
-        if "Type" in self._label:
+        if self._key == "type":
             try: return loc.get("evses", [])[self.index]["connectors"][0].get("standard")
             except: return "Onbekend"
         return None
