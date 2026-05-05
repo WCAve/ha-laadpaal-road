@@ -1,5 +1,5 @@
 {
-  "domain": "eflux_ev",
+  "domain": "road_ev",
   "name": "Road.io (E-flux) EV Charger",
   "codeowners": ["@WCAve"],
   "config_flow": true,
