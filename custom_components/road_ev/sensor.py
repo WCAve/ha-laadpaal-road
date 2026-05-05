@@ -31,11 +31,11 @@ async def async_setup_entry(hass, entry, async_add_entities):
     evses = coordinator.data.get("evses", [])
     entities = []
 
-    # 1. Diagnostiek
+    # 1. Diagnostiek (Aanbieder & Locatie)
     entities.append(RoadDiagnosticSensor(coordinator, location_id, device_name, "Aanbieder", "operator"))
     entities.append(RoadDiagnosticSensor(coordinator, location_id, device_name, "Coördinaten", "coords"))
     
-    # 2. Centrale Prijs sensor
+    # 2. Centrale Prijs sensor (1 per paal)
     entities.append(RoadLocationPriceSensor(coordinator, location_id, device_name))
 
     # 3. Per Socket (Status en Vermogen)
@@ -46,6 +46,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     async_add_entities(entities)
 
 class RoadBaseEntity(CoordinatorEntity, SensorEntity):
+    """Basis klasse voor Road entiteiten."""
     _attr_has_entity_name = True
     def __init__(self, coordinator, location_id, device_name, index=None):
         super().__init__(coordinator)
@@ -59,6 +60,7 @@ class RoadBaseEntity(CoordinatorEntity, SensorEntity):
         }
 
 class RoadLocationPriceSensor(RoadBaseEntity):
+    """Centrale prijs sensor voor de hele laadpaal."""
     _attr_name = "Prijs"
     _attr_device_class = SensorDeviceClass.MONETARY
     _attr_native_unit_of_measurement = "EUR/kWh"
@@ -66,7 +68,7 @@ class RoadLocationPriceSensor(RoadBaseEntity):
 
     def __init__(self, coordinator, location_id, device_name):
         super().__init__(coordinator, location_id, device_name)
-        self._attr_unique_id = f"road_{location_id}_central_price"
+        self._attr_unique_id = f"road_{location_id}_central_price_final"
 
     @property
     def native_value(self):
@@ -77,19 +79,19 @@ class RoadLocationPriceSensor(RoadBaseEntity):
         except: return None
 
 class RoadSocketSensor(RoadBaseEntity):
+    """Status en Vermogen per socket."""
     def __init__(self, coordinator, location_id, device_name, index, sensor_type):
         super().__init__(coordinator, location_id, device_name, index)
         self._type = sensor_type
-        self._attr_unique_id = f"road_{location_id}_{sensor_type}_{index}"
+        self._attr_unique_id = f"road_{location_id}_{sensor_type}_{index}_final"
         
         if sensor_type == "status":
             self._attr_name = f"Socket {index + 1}"
             self._attr_icon = "mdi:ev-station"
-        else:
+        else: # power
             self._attr_name = f"Socket {index + 1} Max Vermogen"
             self._attr_device_class = SensorDeviceClass.POWER
             self._attr_native_unit_of_measurement = UnitOfPower.KILO_WATT
-            # Forceer weergave zonder decimalen in de UI
             self._attr_suggested_display_precision = 0
 
     @property
@@ -104,12 +106,13 @@ class RoadSocketSensor(RoadBaseEntity):
         except: return None
 
 class RoadDiagnosticSensor(RoadBaseEntity):
+    """Informatieve sensoren."""
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     def __init__(self, coordinator, location_id, device_name, label, key):
         super().__init__(coordinator, location_id, device_name)
         self._key = key
         self._attr_name = label
-        self._attr_unique_id = f"road_{location_id}_{label.lower()}"
+        self._attr_unique_id = f"road_{location_id}_{label.lower()}_final"
 
     @property
     def native_value(self):
