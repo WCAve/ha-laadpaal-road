@@ -58,7 +58,7 @@ class EfluxChargingSensor(SensorEntity):
         if self.state == "Vrij":
             return "mdi:ev-station"
         elif self.state == "Bezet":
-            return "mdi:ev-plug-charging"
+            return "mdi:car-electric" # Gewijzigd: Dit icoon wordt overal ondersteund
         return "mdi:alert-circle-outline"
 
     @property
