@@ -3,7 +3,9 @@
     "step": {
       "user": {
         "title": "Road.io (E-flux) Setup",
+        "description": "Geef de laadpaal een naam en vul het Location ID in.",
         "data": {
+          "name": "Naam van de laadpaal",
           "location_id": "Location ID"
         }
       }

@@ -1,4 +1,4 @@
-from datetime import timedelta
+"""DataUpdateCoordinator voor Road.io."""
 import logging
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from .const import DOMAIN, SCAN_INTERVAL
@@ -6,23 +6,26 @@ from .const import DOMAIN, SCAN_INTERVAL
 _LOGGER = logging.getLogger(__name__)
 
 class EfluxDataUpdateCoordinator(DataUpdateCoordinator):
-    """Beheert het ophalen van data."""
+    """Verwerkt de polling van de API elke 60 seconden."""
 
     def __init__(self, hass, api, location_id):
-        self.api = api
-        self.location_id = location_id
         super().__init__(
             hass,
             _LOGGER,
-            name=DOMAIN,
+            name=f"{DOMAIN}_{location_id}",
             update_interval=SCAN_INTERVAL,
         )
+        self.api = api
+        self.location_id = location_id
 
     async def _async_update_data(self):
+        """Voer de daadwerkelijke update uit."""
         try:
             result = await self.api.async_get_locations(self.location_id)
             if not result or "data" not in result or not result["data"]:
-                raise UpdateFailed("Geen data van Road.io")
+                raise UpdateFailed("Ongeldige of geen data ontvangen van de API")
+            
+            # Retourneer de array met laadpunten (sockets)
             return result["data"][0].get("evses", [])
         except Exception as err:
-            raise UpdateFailed(f"API Fout: {err}")
+            raise UpdateFailed(f"Fout tijdens ophalen van data: {err}")

@@ -1,5 +1,6 @@
+"""Sensor platform voor Road.io."""
 from homeassistant.components.sensor import SensorEntity
-from .const import DOMAIN
+from .const import DOMAIN, CONF_NAME
 
 STATUS_MAP = {
     "AVAILABLE": "Vrij",
@@ -10,34 +11,57 @@ STATUS_MAP = {
 }
 
 async def async_setup_entry(hass, entry, async_add_entities):
+    """Maak de sensoren aan op basis van de coordinator data."""
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     location_id = entry.data["location_id"]
+    custom_name = entry.data.get(CONF_NAME, f"Lader {location_id}")
     
-    entities = []
-    for index, evse in enumerate(coordinator.data):
-        entities.append(EfluxSensor(coordinator, location_id, index))
+    if not coordinator.data:
+        return
+
+    entities = [
+        EfluxChargingSensor(coordinator, location_id, custom_name, index)
+        for index, _ in enumerate(coordinator.data)
+    ]
     
     async_add_entities(entities)
 
-class EfluxSensor(SensorEntity):
-    def __init__(self, coordinator, location_id, index):
+class EfluxChargingSensor(SensorEntity):
+    """De fysieke sensor in Home Assistant."""
+
+    def __init__(self, coordinator, location_id, custom_name, index):
         self.coordinator = coordinator
         self.index = index
-        self._attr_unique_id = f"{location_id}_{index}"
-        self._attr_name = f"Laadpunt {index + 1}"
+        self._attr_unique_id = f"eflux_{location_id}_{index}"
+        
+        # Gebruik de gekozen naam plus het socket nummer
+        self._attr_name = f"{custom_name} Socket {index + 1}"
+        
         self._attr_device_info = {
             "identifiers": {(DOMAIN, location_id)},
-            "name": f"Road.io Lader {location_id}",
+            "name": custom_name,
+            "manufacturer": "Road.io",
         }
 
     @property
     def state(self):
+        """Vertaal en retourneer de actuele status."""
         try:
-            raw = self.coordinator.data[self.index].get("status")
-            return STATUS_MAP.get(raw, "Niet beschikbaar/Defect")
-        except:
+            raw_status = self.coordinator.data[self.index].get("status")
+            return STATUS_MAP.get(raw_status, "Niet beschikbaar/Defect")
+        except (IndexError, KeyError, TypeError):
             return "Niet beschikbaar/Defect"
 
     @property
     def icon(self):
-        return "mdi:ev-station" if self.state == "Vrij" else "mdi:ev-plug-charging"
+        """Kies een relevant icoon gebaseerd op de status."""
+        if self.state == "Vrij":
+            return "mdi:ev-station"
+        elif self.state == "Bezet":
+            return "mdi:ev-plug-charging"
+        return "mdi:alert-circle-outline"
+
+    @property
+    def available(self):
+        """Controleer of de data recent nog is geüpdatet."""
+        return self.coordinator.last_update_success

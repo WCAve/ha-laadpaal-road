@@ -3,10 +3,8 @@
   "name": "Road.io (E-flux) EV Charger",
   "codeowners": ["@WCAve"],
   "config_flow": true,
-  "dependencies": [],
   "documentation": "https://github.com/WCAve/ha-laadpaal-road",
   "issue_tracker": "https://github.com/WCAve/ha-laadpaal-road/issues",
   "iot_class": "cloud_polling",
-  "requirements": [],
   "version": "1.0.0"
 }
