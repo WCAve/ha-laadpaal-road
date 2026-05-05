@@ -99,7 +99,7 @@ class RoadStatusSensor(RoadBaseEntity):
 class RoadPowerSensor(RoadBaseEntity):
     """Sensor voor maximaal vermogen."""
     _attr_device_class = SensorDeviceClass.POWER
-    _attr_native_unit_of_measurement = UnitOfPower.KILOWATT
+    _attr_native_unit_of_measurement = UnitOfPower.KILO_WATT
 
     def __init__(self, coordinator, location_id, custom_name, index, value):
         super().__init__(coordinator, location_id, custom_name, index)
