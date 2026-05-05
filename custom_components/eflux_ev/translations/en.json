@@ -1,0 +1,12 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Road.io (E-flux) Setup",
+        "data": {
+          "location_id": "Location ID"
+        }
+      }
+    }
+  }
+}
