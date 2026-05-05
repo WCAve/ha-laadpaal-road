@@ -25,7 +25,9 @@ class EfluxDataUpdateCoordinator(DataUpdateCoordinator):
             if not result or "data" not in result or not result["data"]:
                 raise UpdateFailed("Ongeldige of geen data ontvangen van de API")
             
-            # Retourneer de array met laadpunten (sockets)
-            return result["data"][0].get("evses", [])
+            # CRUCIALE FIX: Retourneer de volledige locatie-dictionary (index 0)
+            # Hierin zitten: operator, geoLocation én de evses lijst.
+            return result["data"][0]
+            
         except Exception as err:
             raise UpdateFailed(f"Fout tijdens ophalen van data: {err}")
