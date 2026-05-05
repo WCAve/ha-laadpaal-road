@@ -1,9 +1,14 @@
 """Sensor platform voor Road.io."""
-from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorStateClass
+from homeassistant.components.sensor import (
+    SensorEntity, 
+    SensorDeviceClass, 
+    SensorStateClass
+)
 from homeassistant.helpers.entity import EntityCategory
-from homeassistant.const import UnitOfPower, CURRENCY_EURO
+from homeassistant.const import UnitOfPower
 from .const import DOMAIN, CONF_NAME
 
+# Mapping voor leesbare status in de UI
 STATUS_MAP = {
     "AVAILABLE": "Vrij",
     "OCCUPIED": "Bezet",
@@ -21,48 +26,59 @@ async def async_setup_entry(hass, entry, async_add_entities):
     if not coordinator.data or not isinstance(coordinator.data, list):
         return
 
-    # We pakken de data van de eerste locatie in de lijst
+    # We pakken de data van de locatie
     location_data = coordinator.data[0]
     evses = location_data.get("evses", [])
 
     entities = []
 
-    # 1. Locatie-brede diagnostische sensoren (1 per apparaat)
-    entities.append(RoadDiagnosticSensor(coordinator, location_id, custom_name, "Aanbieder", location_data.get("operator", {}).get("name")))
+    # 1. Locatie-brede diagnostische sensoren
+    # Aanbieder (bijv. Vattenfall)
+    operator_name = location_data.get("operator", {}).get("name")
+    if operator_name:
+        entities.append(RoadDiagnosticSensor(coordinator, location_id, custom_name, "Aanbieder", operator_name))
     
+    # Coördinaten
     coords = location_data.get("geoLocation", {}).get("coordinates", [])
     if len(coords) == 2:
+        # Format: Latitude, Longitude
         entities.append(RoadDiagnosticSensor(coordinator, location_id, custom_name, "Coördinaten", f"{coords[1]}, {coords[0]}"))
 
-    # 2. EVSE-specifieke sensoren (per socket/stekker)
+    # 2. EVSE-specifieke sensoren per socket
     for index, evse in enumerate(evses):
-        # Status sensor (bestaand)
+        # Hoofdsensor: Status (Vrij/Bezet)
         entities.append(RoadStatusSensor(coordinator, location_id, custom_name, index))
         
-        # Max Vermogen sensor
+        # Max Vermogen sensor (kW)
         max_power = evse.get("maxPower")
-        entities.append(RoadPowerSensor(coordinator, location_id, custom_name, index, max_power))
+        if max_power is not None:
+            entities.append(RoadPowerSensor(coordinator, location_id, custom_name, index, max_power))
         
-        # Prijs sensor (incl BTW)
+        # Prijs sensor (EUR/kWh incl BTW)
         try:
             connector = evse.get("connectors", [{}])[0]
-            price_data = connector.get("tariff", {}).get("elements", [{}])[0].get("priceComponents", [{}])[0]
-            if price_data:
-                base_price = price_data.get("price", 0)
-                vat_rate = price_data.get("vat", 0)
+            tariff = connector.get("tariff", {}).get("elements", [{}])[0]
+            price_component = tariff.get("priceComponents", [{}])[0]
+            
+            if price_component:
+                base_price = price_component.get("price", 0)
+                vat_rate = price_component.get("vat", 0)
+                # Berekening: prijs * (1 + (btw / 100))
                 total_price = round(base_price * (1 + (vat_rate / 100)), 4)
                 entities.append(RoadPriceSensor(coordinator, location_id, custom_name, index, total_price))
+        except (IndexError, KeyError, TypeError):
+            pass
+
+        # Aansluiting type (bijv. IEC_62196_T2)
+        try:
+            standard = evse.get("connectors", [{}])[0].get("standard")
+            if standard:
+                entities.append(RoadDiagnosticSensor(coordinator, location_id, custom_name, f"Socket {index + 1} Type", standard, index))
         except (IndexError, KeyError):
             pass
 
-        # Aansluiting type (Diagnostic)
-        try:
-            standard = evse.get("connectors", [{}])[0].get("standard", "Onbekend")
-            entities.append(RoadDiagnosticSensor(coordinator, location_id, custom_name, f"Socket {index + 1} Type", standard, index))
-        except IndexError:
-            pass
-
     async_add_entities(entities)
+
 
 class RoadBaseEntity(SensorEntity):
     """Basis klasse voor Road entiteiten."""
@@ -77,8 +93,9 @@ class RoadBaseEntity(SensorEntity):
             "manufacturer": "Road.io",
         }
 
+
 class RoadStatusSensor(RoadBaseEntity):
-    """Sensor voor de laadstatus."""
+    """Sensor voor de actuele laadstatus."""
     def __init__(self, coordinator, location_id, custom_name, index):
         super().__init__(coordinator, location_id, custom_name, index)
         self.index = index
@@ -86,20 +103,23 @@ class RoadStatusSensor(RoadBaseEntity):
         self._attr_name = f"Socket {index + 1}"
 
     @property
-    def state(self):
+    def native_value(self):
         try:
             raw = self.coordinator.data[0]["evses"][self.index].get("status")
             return STATUS_MAP.get(raw, "Onbekend")
-        except (IndexError, KeyError): return "Onbekend"
+        except (IndexError, KeyError, TypeError):
+            return "Onbekend"
 
     @property
     def icon(self):
-        return "mdi:ev-station" if self.state == "Vrij" else "mdi:car-electric"
+        return "mdi:ev-station" if self.native_value == "Vrij" else "mdi:car-electric"
+
 
 class RoadPowerSensor(RoadBaseEntity):
-    """Sensor voor maximaal vermogen."""
+    """Sensor voor het maximale vermogen."""
     _attr_device_class = SensorDeviceClass.POWER
     _attr_native_unit_of_measurement = UnitOfPower.KILO_WATT
+    _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, coordinator, location_id, custom_name, index, value):
         super().__init__(coordinator, location_id, custom_name, index)
@@ -107,8 +127,9 @@ class RoadPowerSensor(RoadBaseEntity):
         self._attr_name = f"Socket {index + 1} Max Vermogen"
         self._attr_native_value = value
 
+
 class RoadPriceSensor(RoadBaseEntity):
-    """Sensor voor de prijs per kWh incl BTW."""
+    """Sensor voor de prijs per kWh inclusief BTW."""
     _attr_device_class = SensorDeviceClass.MONETARY
     _attr_native_unit_of_measurement = "EUR/kWh"
     _attr_state_class = SensorStateClass.MEASUREMENT
@@ -120,8 +141,9 @@ class RoadPriceSensor(RoadBaseEntity):
         self._attr_native_value = value
         self._attr_icon = "mdi:cash-multiple"
 
+
 class RoadDiagnosticSensor(RoadBaseEntity):
-    """Sensor voor diagnostische informatie."""
+    """Sensor voor statische diagnostische informatie."""
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, coordinator, location_id, custom_name, label, value, index=None):
@@ -131,6 +153,10 @@ class RoadDiagnosticSensor(RoadBaseEntity):
         self._attr_name = label
         self._attr_native_value = value
         
-        if "Type" in label: self._attr_icon = "mdi:vector-point"
-        elif "Aanbieder" in label: self._attr_icon = "mdi:factory"
-        elif "Coördinaten" in label: self._attr_icon = "mdi:map-marker"
+        # Selecteer icoon op basis van label
+        if "Type" in label:
+            self._attr_icon = "mdi:vector-point"
+        elif "Aanbieder" in label:
+            self._attr_icon = "mdi:factory"
+        elif "Coördinaten" in label:
+            self._attr_icon = "mdi:map-marker"
