@@ -20,6 +20,7 @@ STATUS_MAP = {
 }
 
 async def async_setup_entry(hass, entry, async_add_entities):
+    """Maak de sensoren aan voor de Road.io lader."""
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     location_id = entry.data["location_id"]
     device_name = entry.title
@@ -30,17 +31,14 @@ async def async_setup_entry(hass, entry, async_add_entities):
     evses = coordinator.data.get("evses", [])
     entities = []
 
-    # --- VERIFICATIE SENSOR ---
-    entities.append(RoadVersionSensor(coordinator, location_id, device_name))
-
     # 1. Diagnostiek
     entities.append(RoadDiagnosticSensor(coordinator, location_id, device_name, "Aanbieder", "operator"))
     entities.append(RoadDiagnosticSensor(coordinator, location_id, device_name, "Coördinaten", "coords"))
     
-    # 2. ÉÉN centrale Prijs sensor
+    # 2. Centrale Prijs sensor
     entities.append(RoadLocationPriceSensor(coordinator, location_id, device_name))
 
-    # 3. Per Socket (Alleen Status en Vermogen)
+    # 3. Per Socket (Status en Vermogen)
     for index, _ in enumerate(evses):
         entities.append(RoadSocketSensor(coordinator, location_id, device_name, index, "status"))
         entities.append(RoadSocketSensor(coordinator, location_id, device_name, index, "power"))
@@ -60,15 +58,6 @@ class RoadBaseEntity(CoordinatorEntity, SensorEntity):
             "manufacturer": "Road.io",
         }
 
-class RoadVersionSensor(RoadBaseEntity):
-    """Sensor om te controleren welke codeversie er draait."""
-    _attr_name = "Code Versie"
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_unique_id = "road_code_version_check"
-    @property
-    def native_value(self):
-        return "V4-Definitief"
-
 class RoadLocationPriceSensor(RoadBaseEntity):
     _attr_name = "Prijs"
     _attr_device_class = SensorDeviceClass.MONETARY
@@ -77,8 +66,7 @@ class RoadLocationPriceSensor(RoadBaseEntity):
 
     def __init__(self, coordinator, location_id, device_name):
         super().__init__(coordinator, location_id, device_name)
-        # FIX: Unique ID moet het location_id bevatten!
-        self._attr_unique_id = f"road_{location_id}_central_price_v4"
+        self._attr_unique_id = f"road_{location_id}_central_price"
 
     @property
     def native_value(self):
@@ -92,7 +80,7 @@ class RoadSocketSensor(RoadBaseEntity):
     def __init__(self, coordinator, location_id, device_name, index, sensor_type):
         super().__init__(coordinator, location_id, device_name, index)
         self._type = sensor_type
-        self._attr_unique_id = f"road_{location_id}_{sensor_type}_{index}_v4"
+        self._attr_unique_id = f"road_{location_id}_{sensor_type}_{index}"
         
         if sensor_type == "status":
             self._attr_name = f"Socket {index + 1}"
@@ -101,6 +89,8 @@ class RoadSocketSensor(RoadBaseEntity):
             self._attr_name = f"Socket {index + 1} Max Vermogen"
             self._attr_device_class = SensorDeviceClass.POWER
             self._attr_native_unit_of_measurement = UnitOfPower.KILO_WATT
+            # Forceer weergave zonder decimalen in de UI
+            self._attr_suggested_display_precision = 0
 
     @property
     def native_value(self):
@@ -119,7 +109,7 @@ class RoadDiagnosticSensor(RoadBaseEntity):
         super().__init__(coordinator, location_id, device_name)
         self._key = key
         self._attr_name = label
-        self._attr_unique_id = f"road_{location_id}_{label.lower()}_v4"
+        self._attr_unique_id = f"road_{location_id}_{label.lower()}"
 
     @property
     def native_value(self):
