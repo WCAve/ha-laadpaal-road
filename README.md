@@ -22,70 +22,170 @@ Sla deze code op als `index.html` op je server.
 <html lang="nl">
 <head>
     <meta charset="UTF-8">
-    <title>E-flux Location ID Finder</title>
-    <link rel="stylesheet" href="[https://unpkg.com/leaflet@1.9.4/dist/leaflet.css](https://unpkg.com/leaflet@1.9.4/dist/leaflet.css)" />
+    <title>EV Config Tool 3.1 - Raw ID Edition</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { font-family: sans-serif; display: flex; height: 100vh; margin: 0; background: #1a1a1a; color: #e0e0e0; }
-        #map { flex: 1; z-index: 1; }
-        #sidebar { width: 400px; padding: 25px; overflow-y: auto; background: #2d2d2d; border-left: 1px solid #444; }
-        .card { background: #3d3d3d; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
-        .id-box { background: #000; color: #a6e22e; padding: 12px; border-radius: 4px; font-family: monospace; word-break: break-all; }
-        button { background: #03a9f4; border: none; color: white; padding: 12px; border-radius: 4px; cursor: pointer; width: 100%; font-weight: bold; margin-bottom: 10px; }
-        .copy-btn { background: #4caf50; font-size: 13px; }
-        h2 { color: #03a9f4; }
+        body { font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; margin: 0; background: #121212; color: #ececec; }
+        #map { flex: 1; border-right: 2px solid #333; }
+        #sidebar { width: 480px; padding: 20px; overflow-y: auto; background: #1e1e1e; display: flex; flex-direction: column; }
+        
+        .search-box { display: flex; gap: 8px; margin-bottom: 20px; }
+        input[type="text"] { flex: 1; padding: 10px; background: #2a2a2a; border: 1px solid #444; color: #fff; border-radius: 4px; }
+        
+        button { padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn-search { background: #4caf50; color: white; }
+        .btn-copy { background: #03a9f4; color: white; margin-top: 10px; width: 100%; }
+        
+        .result-item { 
+            background: #2a2a2a; border: 1px solid #3d3d3d; border-radius: 6px; padding: 15px; margin-bottom: 10px; 
+            cursor: pointer; transition: transform 0.1s; position: relative;
+        }
+        .result-item:hover { transform: scale(1.01); border-color: #03a9f4; background: #333; }
+        .result-item h4 { margin: 0 0 8px 0; color: #fff; padding-right: 60px; }
+        
+        .dist-badge { position: absolute; top: 15px; right: 15px; font-size: 0.8em; color: #03a9f4; font-weight: bold; }
+        
+        pre { background: #000; padding: 15px; border-radius: 6px; font-size: 14px; color: #a6e22e; border: 1px solid #333; overflow-x: auto; text-align: center; font-weight: bold; }
+        .status-tag { display: inline-block; padding: 2px 6px; border-radius: 3px; background: #444; font-size: 0.75em; margin-right: 5px; }
+        
+        #id-section { margin-top: 20px; border-top: 1px solid #333; padding-top: 20px; display: none; }
     </style>
 </head>
 <body>
+
 <div id="map"></div>
+
 <div id="sidebar">
-    <h2>E-flux ID Finder</h2>
-    <div id="results">Klik op de kaart om te zoeken...</div>
-    <div id="detail-area" style="display:none; margin-top: 20px;">
-        <div class="card">
-            <strong id="displayName">Naam</strong><br>
-            <div class="id-box" id="locationID">ID laden...</div>
-            <button class="copy-btn" id="copyBtn" onclick="copyId()">Kopieer ID</button>
-        </div>
+    <h2>EV Scouter</h2>
+    
+    <div class="search-box">
+        <input type="text" id="addrInput" placeholder="Zoek adres...">
+        <button class="btn-search" onclick="searchAddress()">Zoek</button>
+    </div>
+
+    <div id="results-list">
+        <p style="color: #888;">Klik op de kaart of zoek een adres om palen te vinden.</p>
+    </div>
+
+    <div id="id-section">
+        <h3>Location ID</h3>
+        <p style="font-size: 0.85em; color: #aaa; margin-top: 0;">Klaar voor gebruik in je REST payload</p>
+        <pre id="rawIdDisplay"></pre>
+        <button class="btn-copy" onclick="copyRawId()">Kopieer ID</button>
     </div>
 </div>
-<script src="[https://unpkg.com/leaflet@1.9.4/dist/leaflet.js](https://unpkg.com/leaflet@1.9.4/dist/leaflet.js)"></script>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    const map = L.map('map').setView([52.211, 5.965], 14);
+    const map = L.map('map').setView([52.195, 5.967], 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    map.on('click', async function(e) {
-        const res = document.getElementById('results');
-        res.innerHTML = "Zoeken...";
+
+    function getDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371e3; 
+        const φ1 = lat1 * Math.PI/180;
+        const φ2 = lat2 * Math.PI/180;
+        const Δφ = (lat2-lat1) * Math.PI/180;
+        const Δλ = (lon2-lon1) * Math.PI/180;
+
+        const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                  Math.cos(φ1) * Math.cos(φ2) *
+                  Math.sin(Δλ/2) * Math.sin(Δλ/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+        return R * c; 
+    }
+
+    async function searchAddress() {
+        const query = document.getElementById('addrInput').value;
+        if (!query) return;
         try {
-            const response = await fetch('/road-proxy/1/map/clusters', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Origin': '[https://www.e-flux.io](https://www.e-flux.io)', 'Referer': '[https://www.e-flux.io/](https://www.e-flux.io/)' },
-                body: JSON.stringify({ lat: e.latlng.lat, lng: e.latlng.lng, zoom: 15 })
-            });
-            const data = await response.json();
-            res.innerHTML = "";
-            if (data.locations) {
-                data.locations.forEach(loc => {
-                    const btn = document.createElement('button');
-                    btn.innerText = `${loc.name || 'Onbekend'} (${loc.evses.length} poorten)`;
-                    btn.onclick = () => {
-                        document.getElementById('detail-area').style.display = 'block';
-                        document.getElementById('displayName').innerText = loc.name;
-                        document.getElementById('locationID').innerText = loc.id;
-                    };
-                    res.appendChild(btn);
-                });
+            const resp = await fetch(`/osm-proxy/search?q=${encodeURIComponent(query)}&format=json&limit=1`);
+            const data = await resp.json();
+            if (data.length > 0) {
+                const lat = parseFloat(data[0].lat), lon = parseFloat(data[0].lon);
+                map.setView([lat, lon], 17);
+                triggerSearch(lat, lon);
             }
-        } catch (err) { res.innerHTML = "Proxy fout. Controleer Nginx configuratie."; }
-    });
-    function copyId() {
-        navigator.clipboard.writeText(document.getElementById('locationID').innerText);
-        document.getElementById('copyBtn').innerText = "Gekopieerd!";
-        setTimeout(() => { document.getElementById('copyBtn').innerText = "Kopieer ID"; }, 2000);
+        } catch (e) { alert("Adres zoeken mislukt."); }
+    }
+
+    map.on('click', e => triggerSearch(e.latlng.lat, e.latlng.lng));
+
+    async function triggerSearch(lat, lon) {
+        const list = document.getElementById('results-list');
+        list.innerHTML = "Palen ophalen en sorteren...";
+        document.getElementById('id-section').style.display = 'none';
+
+        const bbox = {
+            nwLat: lat + 0.005, nwLng: lon - 0.005,
+            seLat: lat - 0.005, seLng: lon + 0.005
+        };
+
+        try {
+            const searchResp = await fetch('/road-proxy/1/map/search', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ gridPrecision: 8, bbox })
+            });
+            const searchJson = await searchResp.json();
+            
+            if (searchJson.data && searchJson.data.length > 0) {
+                const allIds = searchJson.data.map(item => item.ids[0]);
+                
+                const locResp = await fetch('/road-proxy/1/map/locations', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ids: allIds })
+                });
+                const locJson = await locResp.json();
+                
+                locJson.data.forEach(station => {
+                    const sLat = station.geoLocation.coordinates[1];
+                    const sLon = station.geoLocation.coordinates[0];
+                    station.calculatedDistance = getDistance(lat, lon, sLat, sLon);
+                });
+
+                locJson.data.sort((a, b) => a.calculatedDistance - b.calculatedDistance);
+                
+                list.innerHTML = "";
+                locJson.data.forEach(station => {
+                    const div = document.createElement('div');
+                    div.className = 'result-item';
+                    const available = station.evses.filter(e => e.status === 'AVAILABLE').length;
+                    const distStr = station.calculatedDistance > 1000 
+                        ? (station.calculatedDistance / 1000).toFixed(1) + " km" 
+                        : Math.round(station.calculatedDistance) + " m";
+                    
+                    div.innerHTML = `
+                        <div class="dist-badge">${distStr}</div>
+                        <h4>${station.address || 'Onbekend adres'}, ${station.city || ''}</h4>
+                        <span class="status-tag">Vrij: ${available}/${station.evses.length}</span>
+                        <span class="status-tag" style="background:#222">${station.operator.name || 'CPO'}</span>
+                    `;
+                    div.onclick = () => selectStation(station);
+                    list.appendChild(div);
+                });
+            } else {
+                list.innerHTML = "Geen palen gevonden in dit gebied.";
+            }
+        } catch (e) { list.innerHTML = "Fout bij ophalen van paalgegevens."; }
+    }
+
+    function selectStation(station) {
+        document.getElementById('id-section').style.display = 'block';
+        
+        // Alleen het kale ID in het codeblokje zetten
+        document.getElementById('rawIdDisplay').innerText = station.id;
+    }
+
+    function copyRawId() {
+        const text = document.getElementById('rawIdDisplay').innerText;
+        navigator.clipboard.writeText(text).then(() => alert("Location ID gekopieerd!"));
     }
 </script>
 </body>
 </html>
-```
+
 
 ### 1.2 Nginx Configuratie
 Voeg de volgende `location` block toe aan je bestaande Nginx `server` configuratie om de browser-beveiliging te omzeilen:
