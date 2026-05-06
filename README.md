@@ -101,20 +101,3 @@ template:
 
 ---
 
-## Stap 4: Dashboard
-
-Gebruik een **Markdown card** op je dashboard voor het resultaat:
-
-```yaml
-type: markdown
-content: >
-  **Beschikbare punten in de buurt:**
-  {% set palen = state_attr('sensor.dichtstbijzijnde_laadpunt', 'palen_lijst') %}
-  {% if palen %}
-    {% for paal in palen %}
-    {{ loop.index }}. **{{ paal.naam }}** ({{ paal.afstand_m }}m) - *{{ paal.vrije_sockets }} vrij*
-    {% endfor %}
-  {% else %}
-    Alles bezet. Succes met lopen.
-  {% endif %}
-```
