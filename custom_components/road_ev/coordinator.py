@@ -1,5 +1,7 @@
 """DataUpdateCoordinator voor Road.io."""
+import asyncio
 import logging
+import aiohttp
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from .const import DOMAIN, SCAN_INTERVAL
 
@@ -22,12 +24,12 @@ class EfluxDataUpdateCoordinator(DataUpdateCoordinator):
         """Voer de daadwerkelijke update uit."""
         try:
             result = await self.api.async_get_locations(self.location_id)
-            if not result or "data" not in result or not result["data"]:
-                raise UpdateFailed("Ongeldige of geen data ontvangen van de API")
-            
-            # CRUCIALE FIX: Retourneer de volledige locatie-dictionary (index 0)
-            # Hierin zitten: operator, geoLocation én de evses lijst.
-            return result["data"][0]
-            
-        except Exception as err:
-            raise UpdateFailed(f"Fout tijdens ophalen van data: {err}")
+        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as err:
+            raise UpdateFailed(f"Fout tijdens ophalen van data: {err}") from err
+
+        if not result or "data" not in result or not result["data"]:
+            raise UpdateFailed("Ongeldige of geen data ontvangen van de API")
+
+        # CRUCIALE FIX: Retourneer de volledige locatie-dictionary (index 0)
+        # Hierin zitten: operator, geoLocation én de evses lijst.
+        return result["data"][0]
