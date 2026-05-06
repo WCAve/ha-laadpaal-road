@@ -13,15 +13,16 @@ Zonder ID doet de integratie niets. Gebruik de bijgevoegde webtool om ze binnen 
 ---
 
 ## Stap 2: Installatie via HACS
-1. Ga in Home Assistant naar **HACS** > **Integraties**.
-2. Klik op de drie puntjes rechtsboven > **Aangepaste repositories**.
-3. Plak de URL van deze GitHub repo erin en kies categorie **Integratie**.
-4. Installeer, herstart Home Assistant en voeg de Road.io integratie toe via je instellingen met de ID's uit Stap 1.
+1. Ga in Home Assistant naar **HACS** > **Integrations**.
+2. Klik op de drie puntjes rechtsboven > **Custom repositories**.
+3. Plak de URL van deze GitHub repo erin en kies bij Category voor **Integration**.
+4. Installeer de integratie en herstart Home Assistant.
+5. Ga naar **Settings** > **Devices & Services** > **Add Integration** en zoek naar "Road.io" om je palen toe te voegen met de ID's uit Stap 1.
 
 ---
 
 ## Stap 3: De Radar (Template Sensor)
-De integratie slurpt data, deze sensor geeft hem hersenen. Hij vindt automatisch de dichtstbijzijnde vrije paal op basis van de coördinaten in de diagnostiek-sensor. Plak dit in je `configuration.yaml`:
+De integratie haalt de data op, deze sensor doet het rekenwerk. Hij vindt automatisch de dichtstbijzijnde vrije paal op basis van de coördinaten in de diagnostic sensor. Plak dit in je `configuration.yaml`:
 
 ```yaml
 template:
