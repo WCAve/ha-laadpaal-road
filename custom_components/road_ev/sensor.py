@@ -7,7 +7,6 @@ from homeassistant.components.sensor import (
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.const import UnitOfPower
-from homeassistant.util.location import distance as ha_distance
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
@@ -38,7 +37,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     # 2. Centrale Prijs sensor
     entities.append(RoadLocationPriceSensor(coordinator, location_id, device_name))
 
-    # 3. De overkoepelende beschikbaarheid
+    # 3. De overkoepelende beschikbaarheid (Aantal sockets vrij)
     entities.append(RoadAvailabilitySensor(coordinator, location_id, device_name))
 
     # 4. Per Socket (Status en Vermogen)
@@ -46,15 +45,10 @@ async def async_setup_entry(hass, entry, async_add_entities):
         entities.append(RoadSocketSensor(coordinator, location_id, device_name, index, "status"))
         entities.append(RoadSocketSensor(coordinator, location_id, device_name, index, "power"))
 
-    # 5. De Globale "Dichtstbijzijnde" sensor (maar 1 keer toevoegen per HA instantie)
-    if not hass.data[DOMAIN].get("global_sensor_loaded"):
-        entities.append(RoadClosestFreeSensor(hass))
-        hass.data[DOMAIN]["global_sensor_loaded"] = True
-
     async_add_entities(entities)
 
 class RoadBaseEntity(CoordinatorEntity, SensorEntity):
-    """Basis klasse voor Road entiteiten met Android Auto navigatie ondersteuning."""
+    """Basis klasse voor Road entiteiten."""
     _attr_has_entity_name = True
     def __init__(self, coordinator, location_id, device_name, index=None):
         super().__init__(coordinator)
@@ -66,20 +60,6 @@ class RoadBaseEntity(CoordinatorEntity, SensorEntity):
             "name": device_name,
             "manufacturer": "Road.io",
         }
-
-    @property
-    def extra_state_attributes(self):
-        """Voeg verborgen GPS coördinaten toe voor Android Auto Navigatie."""
-        try:
-            c = self.coordinator.data.get("geoLocation", {}).get("coordinates", [])
-            if len(c) == 2:
-                return {
-                    "latitude": c[1],
-                    "longitude": c[0]
-                }
-        except (KeyError, IndexError, TypeError):
-            pass
-        return {}
 
 class RoadLocationPriceSensor(RoadBaseEntity):
     """Centrale prijs sensor voor de hele laadpaal."""
@@ -111,6 +91,7 @@ class RoadAvailabilitySensor(RoadBaseEntity):
 
     @property
     def native_value(self):
+        """Toon de status als 'X van de Y vrij'."""
         try:
             evses = self.coordinator.data.get("evses", [])
             total = len(evses)
@@ -123,14 +104,16 @@ class RoadAvailabilitySensor(RoadBaseEntity):
 
     @property
     def extra_state_attributes(self):
-        """Voeg navigatie toe én de ruwe getallen voor automatiseringen."""
-        attrs = super().extra_state_attributes # Haal de GPS coords op van de base class
+        """Voeg verborgen getallen toe voor slimme automatiseringen."""
         try:
             evses = self.coordinator.data.get("evses", [])
-            attrs["vrije_plekken"] = sum(1 for evse in evses if evse.get("status") == "AVAILABLE")
-            attrs["totale_plekken"] = len(evses)
-        except (KeyError, IndexError, TypeError): pass
-        return attrs
+            total = len(evses)
+            free = sum(1 for evse in evses if evse.get("status") == "AVAILABLE")
+            return {
+                "vrije_plekken": free,
+                "totale_plekken": total
+            }
+        except (KeyError, IndexError, TypeError): return {}
 
 class RoadSocketSensor(RoadBaseEntity):
     """Status en Vermogen per socket."""
@@ -176,87 +159,3 @@ class RoadDiagnosticSensor(RoadBaseEntity):
             c = d.get("geoLocation", {}).get("coordinates", [])
             return f"{c[1]}, {c[0]}" if len(c) == 2 else None
         return None
-
-class RoadClosestFreeSensor(SensorEntity):
-    """Globale sensor die de dichtstbijzijnde vrije paal berekent en navigeerbaar maakt."""
-    _attr_name = "Dichtstbijzijnde Vrije Paal"
-    _attr_icon = "mdi:map-marker-distance"
-    _attr_has_entity_name = True
-
-    def __init__(self, hass):
-        self.hass = hass
-        self._attr_unique_id = "road_global_closest_free_final"
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, "road_global_stats")},
-            "name": "Road.io Overzicht",
-            "manufacturer": "Road.io",
-        }
-
-    @property
-    def native_value(self):
-        home_lat = self.hass.config.latitude
-        home_lon = self.hass.config.longitude
-        
-        closest_name = "Geen paal vrij"
-        min_dist = float('inf')
-
-        if DOMAIN not in self.hass.data:
-            return "Niet beschikbaar"
-
-        for entry_id in self.hass.data[DOMAIN]:
-            # Controleer of het een geldige coordinator entry is (sla de global_sensor_loaded over)
-            if isinstance(self.hass.data[DOMAIN][entry_id], dict) and "coordinator" in self.hass.data[DOMAIN][entry_id]:
-                coordinator = self.hass.data[DOMAIN][entry_id]["coordinator"]
-                data = coordinator.data
-                
-                if not data:
-                    continue
-
-                evses = data.get("evses", [])
-                is_free = any(evse.get("status") == "AVAILABLE" for evse in evses)
-
-                if is_free:
-                    coords = data.get("geoLocation", {}).get("coordinates", [])
-                    if len(coords) == 2:
-                        dist = ha_distance(home_lat, home_lon, coords[1], coords[0])
-                        if dist < min_dist:
-                            min_dist = dist
-                            closest_name = coordinator.config_entry.title
-
-        if min_dist == float('inf'):
-            return "Geen paal vrij"
-            
-        return f"{closest_name} ({round(min_dist)}m)"
-
-    @property
-    def extra_state_attributes(self):
-        """Voeg de coördinaten van de WINNENDE paal toe zodat Android Auto erheen kan navigeren."""
-        home_lat = self.hass.config.latitude
-        home_lon = self.hass.config.longitude
-        min_dist = float('inf')
-        best_coords = None
-
-        if DOMAIN not in self.hass.data:
-            return {}
-
-        for entry_id in self.hass.data[DOMAIN]:
-            if isinstance(self.hass.data[DOMAIN][entry_id], dict) and "coordinator" in self.hass.data[DOMAIN][entry_id]:
-                coordinator = self.hass.data[DOMAIN][entry_id]["coordinator"]
-                data = coordinator.data
-                if not data: continue
-
-                evses = data.get("evses", [])
-                if any(evse.get("status") == "AVAILABLE" for evse in evses):
-                    coords = data.get("geoLocation", {}).get("coordinates", [])
-                    if len(coords) == 2:
-                        dist = ha_distance(home_lat, home_lon, coords[1], coords[0])
-                        if dist < min_dist:
-                            min_dist = dist
-                            best_coords = coords
-
-        if best_coords:
-            return {
-                "latitude": best_coords[1],
-                "longitude": best_coords[0]
-            }
-        return {}
