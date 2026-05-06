@@ -2,6 +2,9 @@
 
 Dit project hangt aan elkaar met pure vibes. Geen garanties, geen aansprakelijkheid en geen idee waarom het onder water werkt. Gebruik op eigen risico.
 
+Zelfs deze readme is pure ai slop. Bij mij werkt het, geen idee of als je deze stappen opnieuw volgt of het dan bij jou ook werkt. Succes met zelf vibecoden
+
+
 ---
 
 ## Stap 1: De Location ID Finder (Hosting)
