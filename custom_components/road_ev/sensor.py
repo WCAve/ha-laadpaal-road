@@ -35,10 +35,13 @@ async def async_setup_entry(hass, entry, async_add_entities):
     entities.append(RoadDiagnosticSensor(coordinator, location_id, device_name, "Aanbieder", "operator"))
     entities.append(RoadDiagnosticSensor(coordinator, location_id, device_name, "Coördinaten", "coords"))
     
-    # 2. Centrale Prijs sensor (1 per paal)
+# 2. Centrale Prijs sensor (1 per paal)
     entities.append(RoadLocationPriceSensor(coordinator, location_id, device_name))
 
-    # 3. Per Socket (Status en Vermogen)
+# 3. NIEUW: De overkoepelende beschikbaarheid
+    entities.append(RoadAvailabilitySensor(coordinator, location_id, device_name))
+
+# 4. Per Socket (Status en Vermogen)
     for index, _ in enumerate(evses):
         entities.append(RoadSocketSensor(coordinator, location_id, device_name, index, "status"))
         entities.append(RoadSocketSensor(coordinator, location_id, device_name, index, "power"))
@@ -122,3 +125,39 @@ class RoadDiagnosticSensor(RoadBaseEntity):
             c = d.get("geoLocation", {}).get("coordinates", [])
             return f"{c[1]}, {c[0]}" if len(c) == 2 else None
         return None
+class RoadAvailabilitySensor(RoadBaseEntity):
+    """Samenvattende sensor voor de beschikbaarheid van de hele paal."""
+    _attr_name = "Beschikbaarheid"
+    _attr_icon = "mdi:ev-plug-type2"
+
+    def __init__(self, coordinator, location_id, device_name):
+        super().__init__(coordinator, location_id, device_name)
+        self._attr_unique_id = f"road_{location_id}_availability"
+
+    @property
+    def native_value(self):
+        """Toon de status als 'X van de Y vrij'."""
+        try:
+            evses = self.coordinator.data.get("evses", [])
+            total = len(evses)
+            if total == 0:
+                return "Geen sockets"
+
+            free = sum(1 for evse in evses if evse.get("status") == "AVAILABLE")
+            return f"{free} van de {total} vrij"
+        except (TypeError, AttributeError):
+            return None
+
+    @property
+    def extra_state_attributes(self):
+        """Voeg verborgen getallen toe voor slimme automatiseringen."""
+        try:
+            evses = self.coordinator.data.get("evses", [])
+            total = len(evses)
+            free = sum(1 for evse in evses if evse.get("status") == "AVAILABLE")
+            return {
+                "vrije_plekken": free,
+                "totale_plekken": total
+            }
+        except (TypeError, AttributeError):
+            return {}
