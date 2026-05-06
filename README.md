@@ -185,7 +185,7 @@ Sla deze code op als `index.html` op je server.
 </script>
 </body>
 </html>
-
+````
 
 ### 1.2 Nginx Configuratie
 Voeg de volgende `location` block toe aan je bestaande Nginx `server` configuratie om de browser-beveiliging te omzeilen:
