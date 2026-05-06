@@ -76,7 +76,7 @@ class RoadLocationPriceSensor(RoadBaseEntity):
             evse = self.coordinator.data["evses"][0]
             p = evse["connectors"][0]["tariff"]["elements"][0]["priceComponents"][0]
             return round(p["price"] * (1 + (p.get("vat", 0) / 100)), 4)
-        except: return None
+        except (KeyError, IndexError, TypeError): return None
 
 class RoadSocketSensor(RoadBaseEntity):
     """Status en Vermogen per socket."""
@@ -103,7 +103,7 @@ class RoadSocketSensor(RoadBaseEntity):
             if self._type == "power":
                 val = evse.get("maxPower")
                 return int(round(val)) if val is not None else None
-        except: return None
+        except (KeyError, IndexError, TypeError): return None
 
 class RoadDiagnosticSensor(RoadBaseEntity):
     """Informatieve sensoren."""

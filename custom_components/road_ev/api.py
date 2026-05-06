@@ -23,12 +23,12 @@ class EfluxApiClient:
         
         try:
             async with asyncio.timeout(10):
-                response = await self._session.post(url, json=payload, headers=self._headers)
-                response.raise_for_status()
-                return await response.json()
+                async with self._session.post(url, json=payload, headers=self._headers) as response:
+                    response.raise_for_status()
+                    return await response.json(content_type=None)
         except asyncio.TimeoutError:
             _LOGGER.error("Timeout bij verbinding met Road.io")
             raise
-        except Exception as e:
+        except (aiohttp.ClientError, ValueError) as e:
             _LOGGER.error("API fout: %s", e)
             raise
