@@ -68,12 +68,14 @@
         "description": "Turn on the bell (Laadwens) on the card or the switch and you'll get a notification as soon as a socket at this charger is free. Settings are copied from your previous charger when you add a new one.",
         "data": {
           "notify_targets": "Send notifications to",
+          "android_auto": "Also show on Android Auto",
           "disarm_after_notify": "Turn the charge wish off after notifying",
           "notify_when_taken": "Notify if it's taken again before you arrive",
           "disarm_others": "Turn off my other charge wishes when this charger is free",
           "person": "Person (to recognise that you took the charger yourself)",
           "expire_hours": "Turn the charge wish off automatically after",
-          "min_free_minutes": "Only notify when free for at least"
+          "min_free_minutes": "Only notify when free for at least",
+          "notify_price_change": "Notify me when this charger's price changes"
         },
         "data_description": {
           "notify_targets": "Phones with the Home Assistant app, or the notification area in Home Assistant itself.",
@@ -81,7 +83,9 @@
           "person": "If this person is within 200 m when the charger becomes taken, it's you: no 'taken again' notification, and the charge wish turns off.",
           "expire_hours": "0 = never.",
           "min_free_minutes": "Prevents false alarms when a socket is only briefly free. 0 = notify straight away.",
-          "disarm_others": "Handy when you follow several chargers at once: you get one notification for the first one that frees up, and the other bells turn off."
+          "disarm_others": "Handy when you follow several chargers at once: you get one notification for the first one that frees up, and the other bells turn off.",
+          "android_auto": "Shows the charge wish notifications on your car screen too. The Home Assistant app must be visible in the Android Auto launcher. Don't turn this on with the 'Minimal' version of the app: it crashes on these notifications.",
+          "notify_price_change": "Price per kWh, start fee or blocking fee. Day/night switches don't count."
         }
       }
     }

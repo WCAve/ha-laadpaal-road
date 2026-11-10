@@ -33,6 +33,7 @@ from homeassistant.util.location import distance
 from .const import (
     ACTION_STOP_PREFIX,
     ARRIVAL_RADIUS_M,
+    CONF_ANDROID_AUTO,
     CONF_DISARM_AFTER_NOTIFY,
     CONF_DISARM_OTHERS,
     CONF_EXPIRE_HOURS,
@@ -44,6 +45,7 @@ from .const import (
     DOMAIN,
     FOLLOW_UP_WINDOW,
     GROUP_ARM_GRACE,
+    NOTIFY_CHANNEL,
     TARGET_PERSISTENT,
 )
 from .data import coordinates, evses, free_count
@@ -320,6 +322,7 @@ class RoadWatcher:
                 "⏰ Laadwens verlopen",
                 f"{self.name}: er is in {_hours(hours)} geen plek vrijgekomen.",
                 stop_button=False,
+                car=True,
             ),
             f"{DOMAIN} expired notification",
         )
@@ -348,7 +351,7 @@ class RoadWatcher:
                 names = ", ".join(sorted(w.name for w in stopped))
                 message += f"\nLaadwens uitgezet voor: {names}."
         self._run(
-            self.async_send(title, message, stop_button=True),
+            self.async_send(title, message, stop_button=True, car=True),
             f"{DOMAIN} free notification",
         )
         if self.options[CONF_DISARM_AFTER_NOTIFY]:
@@ -361,7 +364,10 @@ class RoadWatcher:
             message += " Je krijgt een melding zodra er weer plek is."
         self._run(
             self.async_send(
-                f"⛔ {self.name} is weer bezet", message, stop_button=self.armed
+                f"⛔ {self.name} is weer bezet",
+                message,
+                stop_button=self.armed,
+                car=True,
             ),
             f"{DOMAIN} taken notification",
         )
@@ -386,6 +392,8 @@ class RoadWatcher:
         *,
         stop_button: bool,
         raise_on_error: bool = False,
+        car: bool = False,
+        tag_suffix: str = "",
     ) -> None:
         """Stuur een melding naar alle ingestelde doelen."""
         targets: list[str] = self.options[CONF_NOTIFY_TARGETS]
@@ -399,7 +407,7 @@ class RoadWatcher:
             _LOGGER.debug("%s: geen meldingsdoelen ingesteld", self.name)
             return
 
-        tag = f"{DOMAIN}_{self.entry.entry_id}"
+        tag = f"{DOMAIN}_{self.entry.entry_id}{tag_suffix}"
         url = self.maps_url
         errors: list[str] = []
 
@@ -418,6 +426,12 @@ class RoadWatcher:
                 service_data: dict[str, Any] = {"title": title, "message": message}
                 if target.startswith("mobile_app_"):
                     extra: dict[str, Any] = {"tag": tag, "group": DOMAIN}
+                    if car and self.options[CONF_ANDROID_AUTO]:
+                        # Android Auto toont alleen meldingen met car_ui; een
+                        # eigen kanaal met hoge prioriteit laat hem opduiken.
+                        extra["car_ui"] = True
+                        extra["channel"] = NOTIFY_CHANNEL
+                        extra["importance"] = "high"
                     actions: list[dict[str, str]] = []
                     if url:
                         extra["url"] = url  # iOS: tik op de melding

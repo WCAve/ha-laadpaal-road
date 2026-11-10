@@ -42,6 +42,8 @@ CONF_EXPIRE_HOURS: Final = "expire_hours"
 CONF_MIN_FREE_MINUTES: Final = "min_free_minutes"
 CONF_PERSON: Final = "person"
 CONF_DISARM_OTHERS: Final = "disarm_others"
+CONF_ANDROID_AUTO: Final = "android_auto"
+CONF_NOTIFY_PRICE_CHANGE: Final = "notify_price_change"
 
 DEFAULT_OPTIONS: Final[dict] = {
     CONF_NOTIFY_TARGETS: [],
@@ -50,6 +52,8 @@ DEFAULT_OPTIONS: Final[dict] = {
     CONF_EXPIRE_HOURS: 0,
     CONF_MIN_FREE_MINUTES: 0,
     CONF_DISARM_OTHERS: True,
+    CONF_ANDROID_AUTO: False,
+    CONF_NOTIFY_PRICE_CHANGE: True,
 }
 
 # Speciaal meldingsdoel: de meldingen in Home Assistant zelf.
@@ -66,6 +70,9 @@ GROUP_ARM_GRACE: Final = timedelta(seconds=10)
 
 # Reparatiemeldingen: pas melden als Road.io zo lang onbereikbaar is.
 UNREACHABLE_REPAIR_AFTER: Final = timedelta(minutes=30)
+
+# Android meldingskanaal voor laadwens-meldingen (ook gebruikt voor Android Auto).
+NOTIFY_CHANNEL: Final = "Laadpalen"
 
 # mobile_app actie-id voor de "Stop" knop in een melding.
 ACTION_STOP_PREFIX: Final = "ROAD_EV_STOP_"

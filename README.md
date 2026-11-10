@@ -52,6 +52,7 @@ De integratie brengt zijn eigen dashboardkaart mee; er hoeft niets los geïnstal
 
 De kaart toont al je palen met status, prijs en afstand tot thuis. Tik op een paal voor de details, of op de 🔔 voor een laadwens. In de visuele editor kies je welke palen je ziet en wat er getoond wordt.
 
+- **Kostenschatting**: "≈ €13,66 voor 20 kWh", inclusief starttarief en een eventueel tijdtarief tijdens het laden (uitgerekend met het laagste van het paal- en autovermogen). Hoeveel kWh en hoe snel je auto laadt stel je in de kaart in. Sorteer op **prijs** en de goedkoopste staat bovenaan. Het blijft een schatting: een blokkeertarief telt niet mee, want dat hangt af van hoe lang je blijft staan.
 - **Tarieven**: naast de kWh-prijs staat een eventueel starttarief ("€0,67/kWh + €0,35 start"), en een oranje regel als er een blokkeertarief is ("na 5 u €3,00/u (07:00–23:00)"). Die laatste is degene waar je op moet letten als je je auto er een nachtje laat staan. Of eigenlijk: een dagje.
 - **Eerste vrije** (rechtsboven): zet de bel aan op alle palen op de kaart. De eerste die vrij komt stuurt een melding en de rest gaat uit. Voor als het je niet uitmaakt wáár je laadt, als het maar ergens kan.
 - **📊 per paal**: een weekoverzicht van wanneer die paal meestal vrij is, per uur, op basis van de afgelopen 4 weken. Home Assistant begint pas met tellen na deze update, dus de eerste dagen is dat overzicht nog wat leeg. Geduld.
@@ -66,7 +67,9 @@ show_price: true
 show_distance: true
 show_group_button: true # de "Eerste vrije" knop
 show_stats: true        # de 📊 knop
-sort: distance          # of: name
+estimate_kwh: 20        # kostenschatting voor zoveel kWh (0 = uit)
+car_kw: 11              # hoe snel je auto (AC) laadt
+sort: distance          # of: price, name
 ```
 
 ---
@@ -86,10 +89,18 @@ Zet de 🔔 aan bij een paal, op de kaart of met `switch.<paal>_laadwens`, en je
 | Laadwens automatisch uitzetten na | 0 (nooit) | Je krijgt dan een melding dat er niks vrijkwam |
 | Pas melden als hij minstens zo lang vrij is | 0 min | Tegen valse hoop als iemand alleen even van auto wisselt |
 | Mijn andere laadwensen uitzetten zodra deze paal vrij is | aan | Volg je meerdere palen, dan krijg je één melding voor de eerste die vrij komt |
+| Ook op Android Auto tonen | uit | De laadwens-meldingen verschijnen ook op het scherm in je auto. De Home Assistant app moet zichtbaar zijn in het Android Auto menu, en zet dit **niet** aan met de "Minimal" versie van de app: die crasht erop |
+| Melden als de prijs van deze paal verandert | aan | Zie hieronder |
 
 Een nieuwe paal neemt de instellingen van je vorige paal over. Met de knop **Testmelding** op het apparaat check je of alles werkt, in plaats van te wachten tot er echt een plek vrijkomt.
 
 De melding toont hoeveel sockets vrij zijn en de prijs, met de knoppen **Navigeer** (route in Maps) en **Stop** (bel uit). Is de paal al vrij als je de bel aanzet, dan krijg je meteen een melding. Een "weer bezet"-melding vervangt de vorige op je telefoon, zodat je niet bedolven wordt.
+
+### Prijswijzigingen
+
+Verandert de prijs per kWh, het starttarief of het blokkeertarief van een paal, dan krijg je een melding, bijvoorbeeld "💶 Nieuw tarief: Volmolenweg · Prijs: €0,37/kWh → €0,41/kWh". Het laatst bekende tarief wordt bewaard, dus ook een wijziging terwijl Home Assistant uit stond wordt opgemerkt. Wisselen tussen dag- en nachtprijs telt niet als wijziging.
+
+Wil je er zelf iets mee: er gaat ook een event `road_ev_price_changed` uit, met `name`, `location_id`, `before` en `after`.
 
 ---
 

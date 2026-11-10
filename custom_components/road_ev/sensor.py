@@ -193,10 +193,18 @@ class RoadLocationPriceSensor(RoadTariffEntity):
         """Starttarief en blokkeertarief, ook voor de kaart en de melding."""
         tariff_now = evaluate(self.coordinator.data)
         fee = tariff_now.blocking_fee
+        powers = [
+            float(evse["maxPower"])
+            for evse in self.evses
+            if isinstance(evse.get("maxPower"), (int, float))
+        ]
         return {
             "starttarief": tariff_now.start_fee,
             "blokkeertarief": fee.text if fee else None,
             "verschilt_per_socket": tariffs_differ(self.coordinator.data),
+            # Voor de kostenschatting op de kaart:
+            "tijdtarief_bij_start": tariff_now.time_fee_at_start,
+            "max_vermogen_kw": max(powers) if powers else None,
         }
 
 

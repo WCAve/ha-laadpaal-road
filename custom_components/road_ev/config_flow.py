@@ -23,6 +23,7 @@ from .api import (
 )
 from .const import (
     CONF_ADDRESS,
+    CONF_ANDROID_AUTO,
     CONF_DISARM_AFTER_NOTIFY,
     CONF_DISARM_OTHERS,
     CONF_EXPIRE_HOURS,
@@ -30,6 +31,7 @@ from .const import (
     CONF_LOCATION_ID,
     CONF_MIN_FREE_MINUTES,
     CONF_NAME,
+    CONF_NOTIFY_PRICE_CHANGE,
     CONF_NOTIFY_TARGETS,
     CONF_NOTIFY_WHEN_TAKEN,
     CONF_PERSON,
@@ -336,6 +338,7 @@ class RoadOptionsFlow(OptionsFlow):
                         mode=selector.SelectSelectorMode.LIST,
                     )
                 ),
+                vol.Required(CONF_ANDROID_AUTO): selector.BooleanSelector(),
                 vol.Required(CONF_DISARM_AFTER_NOTIFY): selector.BooleanSelector(),
                 vol.Required(CONF_NOTIFY_WHEN_TAKEN): selector.BooleanSelector(),
                 vol.Required(CONF_DISARM_OTHERS): selector.BooleanSelector(),
@@ -360,6 +363,7 @@ class RoadOptionsFlow(OptionsFlow):
                         mode=selector.NumberSelectorMode.BOX,
                     )
                 ),
+                vol.Required(CONF_NOTIFY_PRICE_CHANGE): selector.BooleanSelector(),
             }
         )
         return self.async_show_form(
