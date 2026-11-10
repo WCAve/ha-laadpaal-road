@@ -2,7 +2,7 @@
 
 Dit project hangt aan elkaar met pure vibes. Geen garanties, geen aansprakelijkheid en geen idee waarom het onder water werkt. Gebruik op eigen risico. Zelfs deze readme is pure ai slop. Bij mij werkt het, geen idee of het bij jou ook werkt als je deze stappen volgt. Succes met zelf vibecoden.
 
-> Niet gelieerd aan Road.io of E-flux. Deze integratie praat met hun onofficiële kaart-API, dezelfde die hun eigen kaart op de website gebruikt. Het werkt tot ze daar iets aan veranderen. Daarna werkt het niet meer.
+> Niet gelieerd aan welke laadpaalaanbieder dan ook. Deze integratie praat met een onofficiële kaart-API, dezelfde die een openbare laadpalenkaart op het web gebruikt. Het werkt tot daar iets aan verandert. Daarna werkt het niet meer.
 
 ---
 
@@ -22,7 +22,7 @@ Dit project hangt aan elkaar met pure vibes. Geen garanties, geen aansprakelijkh
 1. Ga in Home Assistant naar **HACS** > **Integrations**.
 2. Klik op de drie puntjes rechtsboven > **Custom repositories**.
 3. Plak de URL van deze repo erin en kies bij Category voor **Integration**.
-4. Installeer **Road.io (E-flux) EV Charger** en herstart Home Assistant.
+4. Installeer de integratie en herstart Home Assistant.
 
 Vereist Home Assistant 2025.1 of nieuwer. Ouder kan werken, maar dat heeft niemand geprobeerd.
 
@@ -30,14 +30,14 @@ Vereist Home Assistant 2025.1 of nieuwer. Ouder kan werken, maar dat heeft niema
 
 ## Laadpalen toevoegen
 
-1. Ga naar **Instellingen** > **Apparaten & diensten** > **Integratie toevoegen** en zoek naar **Road.io (E-flux) EV Charger**.
+1. Ga naar **Instellingen** > **Apparaten & diensten** > **Integratie toevoegen** en zoek naar **EV Charger**.
 2. Kies **Zoeken op de kaart**.
 3. Typ een adres of plaats en klik op **Verzenden**: de kaart springt erheen. Klopt de pin? Klik nog een keer op **Verzenden**. Je kunt de pin ook gewoon zelf verslepen (standaard staat hij op je thuislocatie), en met de cirkel bepaal je hoe ver er gezocht wordt, tot maximaal 3 km.
 4. Kies een paal uit de lijst: adres, aanbieder, hoeveel sockets er nu vrij zijn en de afstand. Laat de naam leeg om het adres als naam te gebruiken.
 
 Herhaal dit voor elke paal die je wilt volgen. Palen die je al hebt staan niet meer in de lijst.
 
-Heb je al een Location ID, bijvoorbeeld van een eerdere installatie? Kies dan **Ik heb al een Location ID**. Het ID wordt meteen gecontroleerd bij Road.io.
+Heb je al een Location ID, bijvoorbeeld van een eerdere installatie? Kies dan **Ik heb al een Location ID**. Het ID wordt meteen gecontroleerd.
 
 > Vroeger moest je hiervoor een losse webtool achter een eigen Nginx reverse proxy hosten, omdat de API in de browser door CORS werd tegengehouden. Kon dat makkelijker? Ja. In my defense: I have no idea what I'm doing. Die tool is nu weg.
 
@@ -48,7 +48,7 @@ Heb je al een Location ID, bijvoorbeeld van een eerdere installatie? Kies dan **
 De integratie brengt zijn eigen dashboardkaart mee; er hoeft niets los geïnstalleerd te worden. Na een update één keer de browser verversen (en als dat niet helpt: cache legen, het blijft een webbrowser).
 
 1. Open een dashboard > **Bewerken** > **Kaart toevoegen**.
-2. Zoek naar **Road.io laadpalen**.
+2. Zoek naar **laadpalen**.
 
 De kaart toont al je palen met status, prijs en afstand tot thuis. Tik op een paal voor de details, of op de 🔔 voor een laadwens. In de visuele editor kies je welke palen je ziet en wat er getoond wordt.
 
@@ -62,7 +62,7 @@ Of in YAML, voor wie dat leuk vindt:
 ```yaml
 type: custom:road-ev-card
 title: Laadpalen        # leeg = geen titel
-devices: []             # leeg = alle Road.io laadpalen
+devices: []             # leeg = alle laadpalen van deze integratie
 show_price: true
 show_distance: true
 show_group_button: true # de "Eerste vrije" knop
@@ -78,7 +78,7 @@ sort: distance          # of: price, name
 
 Zet de 🔔 aan bij een paal, op de kaart of met `switch.<paal>_laadwens`, en je krijgt een melding zodra er een socket vrij is.
 
-**Instellen:** Instellingen > Apparaten & diensten > Road.io > **Configureren** bij een paal.
+**Instellen:** Instellingen > Apparaten & diensten > deze integratie > **Configureren** bij een paal.
 
 | Instelling | Standaard | Wat het doet |
 |---|---|---|
@@ -186,18 +186,18 @@ template:
 
 En dat gaat het een keer, want: onofficiële API.
 
-- **Reparaties.** Onder **Instellingen** > **Systeem** > **Reparaties** verschijnt een melding als Road.io langer dan een half uur niet reageert, als hun API ineens iets anders terugstuurt dan verwacht, of als een paal niet meer bestaat. Die meldingen verdwijnen vanzelf zodra het weer werkt.
-- **Diagnostiek.** Bij een laadpaal: **Instellingen** > **Apparaten & diensten** > **Road.io** > ⋮ > **Diagnostiek downloaden**. Daarin staat de ruwe data die Road.io over die paal stuurt, plus de toestand van de laadwens. Je meldingsdoelen en de gekozen persoon worden eruit gelaten. Handig om aan een issue (of een AI) te hangen.
+- **Reparaties.** Onder **Instellingen** > **Systeem** > **Reparaties** verschijnt een melding als de API langer dan een half uur niet reageert, als die ineens iets anders terugstuurt dan verwacht, of als een paal niet meer bestaat. Die meldingen verdwijnen vanzelf zodra het weer werkt.
+- **Diagnostiek.** Bij een laadpaal: **Instellingen** > **Apparaten & diensten** > deze integratie > ⋮ > **Diagnostiek downloaden**. Daarin staat de ruwe data die de API over die paal stuurt, plus de toestand van de laadwens. Je meldingsdoelen en de gekozen persoon worden eruit gelaten. Handig om aan een issue (of een AI) te hangen.
 
 ---
 
 ## Goed om te weten
 
-- **Onofficiële API.** Zie hierboven: als Road.io iets verandert, ligt dit plat tot iemand het fixt. Die iemand is waarschijnlijk een AI.
-- **Eén keer per minuut.** De status wordt elke minuut opgehaald. Een melding kan dus tot een minuut na het vrijkomen binnenkomen. Vaker vragen kan, maar dan is de kans groter dat Road.io ons eruit gooit.
+- **Onofficiële API.** Zie hierboven: als de API verandert, ligt dit plat tot iemand het fixt. Die iemand is waarschijnlijk een AI.
+- **Eén keer per minuut.** De status wordt elke minuut opgehaald. Een melding kan dus tot een minuut na het vrijkomen binnenkomen. Vaker vragen kan, maar dan is de kans groter dat we eruit gegooid worden.
 - **Geen sleutels of accounts.** De kaart-API heeft geen login nodig; er staan nergens wachtwoorden of API keys in deze repo.
-- **Tarieven.** De prijzen komen uit de data van Road.io, dezelfde als op de kaart van E-flux. Wat je uiteindelijk écht betaalt via je laadpas kan afwijken; dat kunnen we hier niet zien. Heeft een paal per socket een ander tarief, dan toont de integratie dat van de eerste socket (en staat `verschilt_per_socket` op `true`).
-- **Wat er naar Road.io gaat.** Elke minuut alleen de Location ID's van je palen. Tijdens het zoeken bij het toevoegen ook een vak rond de plek die je kiest, standaard je thuislocatie, net als wanneer je over hun kaart scrollt.
+- **Tarieven.** De prijzen komen uit dezelfde data als de openbare laadpalenkaart. Wat je uiteindelijk écht betaalt via je laadpas kan afwijken; dat kunnen we hier niet zien. Heeft een paal per socket een ander tarief, dan toont de integratie dat van de eerste socket (en staat `verschilt_per_socket` op `true`).
+- **Wat er naar de API gaat.** Elke minuut alleen de Location ID's van je palen. Tijdens het zoeken bij het toevoegen ook een vak rond de plek die je kiest, standaard je thuislocatie, net als wanneer je over de openbare kaart scrollt.
 - **Wat er naar OpenStreetMap gaat.** Alleen als je bij het toevoegen een adres typt: dat adres, één keer, om het op de kaart te zetten. Je thuislocatie staat al op de kaart, dus die hoef je nergens te typen.
 
 ---
