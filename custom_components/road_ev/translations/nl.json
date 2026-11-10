@@ -2,8 +2,34 @@
   "config": {
     "step": {
       "user": {
-        "title": "Road.io (E-flux) instellen",
-        "description": "Geef de laadpaal een naam en vul het Location ID in. Het ID vind je met de webtool uit de README.",
+        "title": "Road.io laadpaal toevoegen",
+        "description": "Hoe wil je de laadpaal vinden?",
+        "menu_options": {
+          "search": "Zoeken op de kaart",
+          "manual": "Ik heb al een Location ID"
+        }
+      },
+      "search": {
+        "title": "Waar wil je laden?",
+        "description": "Zet de pin op de plek waar je wilt laden en sleep de cirkel om te bepalen hoe ver er gezocht wordt (maximaal {max_radius} m).",
+        "data": {
+          "location": "Zoekgebied"
+        }
+      },
+      "pick": {
+        "title": "Kies een laadpaal",
+        "description": "{count} laadpa(a)l(en) gevonden, dichtstbijzijnde eerst. Palen die je al hebt toegevoegd staan er niet tussen.",
+        "data": {
+          "location_id": "Laadpaal",
+          "name": "Naam"
+        },
+        "data_description": {
+          "name": "Leeg laten om het adres als naam te gebruiken."
+        }
+      },
+      "manual": {
+        "title": "Location ID invullen",
+        "description": "Geef de laadpaal een naam en vul het Location ID in.",
         "data": {
           "name": "Naam van de laadpaal",
           "location_id": "Location ID"
@@ -13,7 +39,9 @@
     "error": {
       "cannot_connect": "Kan de Road.io API niet bereiken. Probeer het later opnieuw.",
       "invalid_location": "Road.io kent dit Location ID niet.",
-      "unknown": "Onverwachte fout, kijk in de logs van Home Assistant."
+      "unknown": "Onverwachte fout, kijk in de logs van Home Assistant.",
+      "no_chargers": "Geen Road.io laadpalen gevonden in dit gebied. Probeer een grotere cirkel of een andere plek.",
+      "all_added": "Alle laadpalen in dit gebied zijn al toegevoegd."
     },
     "abort": {
       "already_configured": "Deze laadlocatie is al toegevoegd."

@@ -13,10 +13,17 @@ CONF_NAME: Final = "name"
 DEFAULT_NAME: Final = "Mijn Laadpaal"
 SCAN_INTERVAL: Final = timedelta(seconds=60)
 
-API_URL: Final = "https://api.road.io/1/map/locations"
+API_BASE_URL: Final = "https://api.road.io/1/map/"
 API_TIMEOUT: Final = 10
 
 MANUFACTURER: Final = "Road.io"
+
+# Laadpaal zoeken bij het toevoegen
+CONF_LOCATION: Final = "location"
+SEARCH_RADIUS_DEFAULT: Final = 500
+SEARCH_RADIUS_MIN: Final = 100
+SEARCH_RADIUS_MAX: Final = 3000
+SEARCH_MAX_RESULTS: Final = 50
 
 # Opties (Configureren) voor de "Laadwens" meldingen
 CONF_NOTIFY_TARGETS: Final = "notify_targets"

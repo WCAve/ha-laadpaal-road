@@ -4,13 +4,33 @@ Dit project hangt aan elkaar met pure vibes. Geen garanties, geen aansprakelijkh
 
 ---
 
-## Stap 1: De Location ID Finder
+## Stap 1: Installatie via HACS
 
-Zonder de juiste Location ID doet de integratie niets. Omdat de Road.io API browser-beveiliging (CORS) heeft, moet je de bijgevoegde `index.html` (te vinden in de `web_tool` map) hosten via een Nginx-server die fungeert als reverse proxy. Het adres zoeken gaat rechtstreeks via OpenStreetMap (Nominatim) en heeft geen proxy nodig.
+1. Ga in Home Assistant naar **HACS** > **Integrations**.
+2. Klik op de drie puntjes rechtsboven > **Custom repositories**.
+3. Plak de URL van deze GitHub repo erin en kies bij Category voor **Integration**.
+4. Installeer de integratie en herstart Home Assistant.
 
-Je vraagt je misschien af: kan dit makkelijker? Het antwoord is waarschijnlijk "ja". In my defense: I have no idea what I'm doing.
+Vereist Home Assistant 2025.1 of nieuwer.
 
-### Nginx Configuration
+---
+
+## Stap 2: Laadpalen toevoegen
+
+1. Ga naar **Settings** > **Devices & Services** > **Add Integration** en zoek naar **Road.io (E-flux) EV Charger**.
+2. Kies **Zoeken op de kaart**.
+3. Zet de pin op de plek waar je wilt laden (standaard je thuislocatie) en sleep de cirkel om te bepalen hoe ver er gezocht wordt (maximaal 3 km).
+4. Kies een laadpaal uit de lijst. Je ziet per paal het adres, de aanbieder, hoeveel sockets er nu vrij zijn en de afstand. Laat de naam leeg om het adres als naam te gebruiken.
+
+Herhaal dit voor elke laadpaal die je wilt volgen. Palen die je al hebt toegevoegd staan niet meer in de lijst, en een nieuwe paal neemt de meldingsinstellingen van je vorige paal over.
+
+<details>
+<summary>Alternatief: zelf een Location ID invullen (oude methode)</summary>
+
+Kies bij het toevoegen **Ik heb al een Location ID** en vul het ID in; het wordt direct gecontroleerd bij Road.io.
+
+Een ID vinden kan met de oude webtool in de `web_tool` map. Omdat de Road.io API browser-beveiliging (CORS) heeft, moet je die `index.html` hosten via een Nginx-server die als reverse proxy fungeert.
+
 Zet `index.html` in de root van je Nginx site en voeg dit block toe aan dezelfde `server { ... }`. Het pad `/road-proxy/` moet precies zo heten, want de webtool roept dat aan.
 
 ```nginx
@@ -39,17 +59,7 @@ location /road-proxy/ {
 2. Klik op de kaart of zoek een adres; rechts verschijnen de laadpalen in de buurt, gesorteerd op afstand.
 3. Klik op een paal in de lijst en kopieer de Location ID.
 
----
-
-## Stap 2: Installatie via HACS
-
-1. Ga in Home Assistant naar **HACS** > **Integrations**.
-2. Klik op de drie puntjes rechtsboven > **Custom repositories**.
-3. Plak de URL van deze GitHub repo erin en kies bij Category voor **Integration**.
-4. Installeer de integratie en herstart Home Assistant.
-5. Ga naar **Settings** > **Devices & Services** > **Add Integration** en zoek naar **Road.io (E-flux) EV Charger** om je locaties toe te voegen met de ID's uit Stap 1. Het ID wordt direct gecontroleerd bij Road.io, en dezelfde locatie kan maar één keer worden toegevoegd.
-
-Vereist Home Assistant 2025.1 of nieuwer.
+</details>
 
 ---
 
