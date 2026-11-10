@@ -2,8 +2,34 @@
   "config": {
     "step": {
       "user": {
-        "title": "Road.io (E-flux) setup",
-        "description": "Give the charger a name and enter its Location ID. You can find the ID with the web tool from the README.",
+        "title": "Add a Road.io charger",
+        "description": "How do you want to find the charger?",
+        "menu_options": {
+          "search": "Search on the map",
+          "manual": "I already have a Location ID"
+        }
+      },
+      "search": {
+        "title": "Where do you want to charge?",
+        "description": "Move the pin to the place where you want to charge and drag the circle to set how far to search (up to {max_radius} m).",
+        "data": {
+          "location": "Search area"
+        }
+      },
+      "pick": {
+        "title": "Choose a charger",
+        "description": "Found {count} charger(s), closest first. Chargers you've already added aren't listed.",
+        "data": {
+          "location_id": "Charger",
+          "name": "Name"
+        },
+        "data_description": {
+          "name": "Leave empty to use the address."
+        }
+      },
+      "manual": {
+        "title": "Enter a Location ID",
+        "description": "Give the charger a name and enter its Location ID.",
         "data": {
           "name": "Charger name",
           "location_id": "Location ID"
@@ -13,7 +39,9 @@
     "error": {
       "cannot_connect": "Could not reach the Road.io API. Try again later.",
       "invalid_location": "Road.io does not know this Location ID.",
-      "unknown": "Unexpected error, check the Home Assistant logs."
+      "unknown": "Unexpected error, check the Home Assistant logs.",
+      "no_chargers": "No Road.io chargers found in this area. Try a larger circle or another spot.",
+      "all_added": "All chargers in this area have already been added."
     },
     "abort": {
       "already_configured": "This charging location has already been added."
