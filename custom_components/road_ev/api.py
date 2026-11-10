@@ -20,7 +20,7 @@ _HEADERS = {
     "Referer": "https://www.e-flux.io/",
 }
 
-# Zo nauwkeurig groepeert de kaart-API zoekresultaten (zelfde als de webtool).
+# Zo nauwkeurig groepeert de kaart-API zoekresultaten (zoals de kaart van E-flux).
 _GRID_PRECISION = 8
 # Niet te veel locaties in één verzoek opvragen.
 _LOCATIONS_BATCH = 50
@@ -89,8 +89,8 @@ class RoadApiClient:
         """Zoek laadlocaties binnen radius_m meter, dichtstbijzijnde eerst.
 
         Elke locatie krijgt een extra sleutel "distance" (meters tot het
-        zoekpunt). Doet hetzelfde als de oude webtool, maar vanuit Home
-        Assistant, dus zonder CORS-problemen en zonder reverse proxy.
+        zoekpunt). Draait vanuit Home Assistant, dus zonder de CORS-beperking
+        waar een browser tegenaan loopt.
         """
         dlat = radius_m / 111_320
         dlon = radius_m / (111_320 * max(math.cos(math.radians(latitude)), 0.01))

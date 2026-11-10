@@ -2,72 +2,114 @@
 
 Dit project hangt aan elkaar met pure vibes. Geen garanties, geen aansprakelijkheid en geen idee waarom het onder water werkt. Gebruik op eigen risico. Zelfs deze readme is pure ai slop. Bij mij werkt het, geen idee of het bij jou ook werkt als je deze stappen volgt. Succes met zelf vibecoden.
 
+> Niet gelieerd aan Road.io of E-flux. Deze integratie praat met hun onofficiële kaart-API, dezelfde die hun eigen kaart op de website gebruikt. Het werkt tot ze daar iets aan veranderen. Daarna werkt het niet meer.
+
 ---
 
-## Stap 1: Installatie via HACS
+## Wat doet het
+
+- Laat per laadpaal zien hoeveel sockets vrij zijn, wat het kost en hoeveel vermogen erop zit.
+- Zoekt laadpalen voor je op een kaart, gewoon in Home Assistant.
+- Een dashboardkaart met al je palen, gesorteerd op afstand.
+- Een **Laadwens**: druk op de bel en je krijgt een melding op je telefoon zodra er plek is. Geen automations nodig.
+
+---
+
+## Installatie
 
 1. Ga in Home Assistant naar **HACS** > **Integrations**.
 2. Klik op de drie puntjes rechtsboven > **Custom repositories**.
-3. Plak de URL van deze GitHub repo erin en kies bij Category voor **Integration**.
-4. Installeer de integratie en herstart Home Assistant.
+3. Plak de URL van deze repo erin en kies bij Category voor **Integration**.
+4. Installeer **Road.io (E-flux) EV Charger** en herstart Home Assistant.
 
-Vereist Home Assistant 2025.1 of nieuwer.
+Vereist Home Assistant 2025.1 of nieuwer. Ouder kan werken, maar dat heeft niemand geprobeerd.
 
 ---
 
-## Stap 2: Laadpalen toevoegen
+## Laadpalen toevoegen
 
-1. Ga naar **Settings** > **Devices & Services** > **Add Integration** en zoek naar **Road.io (E-flux) EV Charger**.
+1. Ga naar **Instellingen** > **Apparaten & diensten** > **Integratie toevoegen** en zoek naar **Road.io (E-flux) EV Charger**.
 2. Kies **Zoeken op de kaart**.
-3. Zet de pin op de plek waar je wilt laden (standaard je thuislocatie) en sleep de cirkel om te bepalen hoe ver er gezocht wordt (maximaal 3 km).
-4. Kies een laadpaal uit de lijst. Je ziet per paal het adres, de aanbieder, hoeveel sockets er nu vrij zijn en de afstand. Laat de naam leeg om het adres als naam te gebruiken.
+3. Zet de pin waar je wilt laden (standaard je thuislocatie) en sleep de cirkel om te bepalen hoe ver er gezocht wordt, tot maximaal 3 km.
+4. Kies een paal uit de lijst: adres, aanbieder, hoeveel sockets er nu vrij zijn en de afstand. Laat de naam leeg om het adres als naam te gebruiken.
 
-Herhaal dit voor elke laadpaal die je wilt volgen. Palen die je al hebt toegevoegd staan niet meer in de lijst, en een nieuwe paal neemt de meldingsinstellingen van je vorige paal over.
+Herhaal dit voor elke paal die je wilt volgen. Palen die je al hebt staan niet meer in de lijst.
 
-<details>
-<summary>Alternatief: zelf een Location ID invullen (oude methode)</summary>
+Heb je al een Location ID, bijvoorbeeld van een eerdere installatie? Kies dan **Ik heb al een Location ID**. Het ID wordt meteen gecontroleerd bij Road.io.
 
-Kies bij het toevoegen **Ik heb al een Location ID** en vul het ID in; het wordt direct gecontroleerd bij Road.io.
+> Vroeger moest je hiervoor een losse webtool achter een eigen Nginx reverse proxy hosten, omdat de API in de browser door CORS werd tegengehouden. Kon dat makkelijker? Ja. In my defense: I have no idea what I'm doing. Die tool is nu weg.
 
-Een ID vinden kan met de oude webtool in de `web_tool` map. Omdat de Road.io API browser-beveiliging (CORS) heeft, moet je die `index.html` hosten via een Nginx-server die als reverse proxy fungeert.
+---
 
-Zet `index.html` in de root van je Nginx site en voeg dit block toe aan dezelfde `server { ... }`. Het pad `/road-proxy/` moet precies zo heten, want de webtool roept dat aan.
+## De kaart
 
-```nginx
-location /road-proxy/ {
-    proxy_pass https://api.road.io/;
-    proxy_set_header Host api.road.io;
-    proxy_set_header Origin https://www.e-flux.io;
-    proxy_set_header Referer https://www.e-flux.io/;
-    proxy_ssl_server_name on;
+De integratie brengt zijn eigen dashboardkaart mee; er hoeft niets los geïnstalleerd te worden. Na een update één keer de browser verversen (en als dat niet helpt: cache legen, het blijft een webbrowser).
 
-    add_header 'Access-Control-Allow-Origin' '*' always;
-    add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
-    add_header 'Access-Control-Allow-Headers' 'Content-Type' always;
+1. Open een dashboard > **Bewerken** > **Kaart toevoegen**.
+2. Zoek naar **Road.io laadpalen**.
 
-    if ($request_method = 'OPTIONS') {
-        add_header 'Access-Control-Allow-Origin' '*';
-        add_header 'Access-Control-Max-Age' 1728000;
-        add_header 'Content-Type' 'text/plain; charset=utf-8';
-        add_header 'Content-Length' 0;
-        return 204;
-    }
-}
+De kaart toont al je palen met status, prijs en afstand tot thuis. Tik op een paal voor de details, of op de 🔔 voor een laadwens. In de visuele editor kies je welke palen je ziet en of prijs en afstand getoond worden.
+
+Of in YAML, voor wie dat leuk vindt:
+
+```yaml
+type: custom:road-ev-card
+title: Laadpalen        # leeg = geen titel
+devices: []             # leeg = alle Road.io laadpalen
+show_price: true
+show_distance: true
+sort: distance          # of: name
 ```
 
-1. Open je gehoste `index.html` in de browser.
-2. Klik op de kaart of zoek een adres; rechts verschijnen de laadpalen in de buurt, gesorteerd op afstand.
-3. Klik op een paal in de lijst en kopieer de Location ID.
+---
 
-</details>
+## Laadwens (melding als er plek is)
+
+Zet de 🔔 aan bij een paal, op de kaart of met `switch.<paal>_laadwens`, en je krijgt een melding zodra er een socket vrij is.
+
+**Instellen:** Instellingen > Apparaten & diensten > Road.io > **Configureren** bij een paal.
+
+| Instelling | Standaard | Wat het doet |
+|---|---|---|
+| Meldingen sturen naar | – | Je telefoon(s) met de Home Assistant app, en/of de meldingen in Home Assistant zelf |
+| Laadwens uitzetten na de melding | aan | Eén melding per keer dat je de bel aanzet |
+| Melden als de paal weer bezet raakt | aan | Tot 30 minuten na een "vrij"-melding, voor als iemand je voor is |
+| Persoon | – | Ben jij binnen 200 m als de paal bezet raakt, dan ben jij het zelf: geen "weer bezet"-melding |
+| Laadwens automatisch uitzetten na | 0 (nooit) | Je krijgt dan een melding dat er niks vrijkwam |
+| Pas melden als hij minstens zo lang vrij is | 0 min | Tegen valse hoop als iemand alleen even van auto wisselt |
+
+Een nieuwe paal neemt de instellingen van je vorige paal over. Met de knop **Testmelding** op het apparaat check je of alles werkt, in plaats van te wachten tot er echt een plek vrijkomt.
+
+De melding toont hoeveel sockets vrij zijn en de prijs, met de knoppen **Navigeer** (route in Maps) en **Stop** (bel uit). Is de paal al vrij als je de bel aanzet, dan krijg je meteen een melding. Een "weer bezet"-melding vervangt de vorige op je telefoon, zodat je niet bedolven wordt.
 
 ---
 
-## Stap 3: De Radar (Template Sensor)
+## Entiteiten per laadpaal
 
-De integratie haalt de data op, deze sensor doet het rekenwerk. Hij vindt automatisch de dichtstbijzijnde vrije locatie op basis van de coördinaten in de diagnostic sensor. Plak dit in je `configuration.yaml` (dezelfde code staat ook in `templates/sensor_closest_available_charger.txt`):
+| Entiteit | Wat |
+|---|---|
+| `sensor.<paal>_beschikbaarheid` | "1 van de 2 vrij", met attributen `vrije_plekken` en `totale_plekken` |
+| `sensor.<paal>_prijs` | Prijs per kWh incl. btw |
+| `sensor.<paal>_socket_<n>` | Status per socket (Vrij, Bezet, Buiten gebruik, …) |
+| `sensor.<paal>_socket_<n>_max_vermogen` | Maximaal vermogen per socket in kW |
+| `sensor.<paal>_aanbieder` | Aanbieder (diagnostisch) |
+| `sensor.<paal>_coordinaten` | "lat, lon" (diagnostisch) |
+| `binary_sensor.<paal>_vrij` | Aan als er minstens één socket vrij is |
+| `switch.<paal>_laadwens` | De bel; blijft bewaard na een herstart |
+| `button.<paal>_testmelding` | Stuurt een testmelding |
 
-> De template zoekt naar sensoren die eindigen op `_beschikbaarheid` en `_coordinaten`. Hernoem die entiteiten dus niet.
+Komen er sockets bij, dan verschijnen die vanzelf.
+
+---
+
+## Extra: de radar (template sensor)
+
+Uit de tijd van vóór de kaart: een template sensor die de dichtstbijzijnde paal met een vrije socket zoekt. De kaart doet grotendeels hetzelfde, maar als je het als sensor wilt hebben (voor automations bijvoorbeeld), plak dan dit in je `configuration.yaml`. Dezelfde code staat in `templates/sensor_closest_available_charger.txt`.
+
+> De template zoekt naar sensoren die eindigen op `_beschikbaarheid` en `_coordinaten`. Hernoem die entiteiten dus niet, anders vindt hij niks.
+
+<details>
+<summary>Template tonen</summary>
 
 ```yaml
 template:
@@ -111,56 +153,19 @@ template:
             {{ ns.distances | sort(attribute='afstand_m') }}
 ```
 
----
-
-
-## Stap 4: De kaart
-
-De integratie brengt zijn eigen dashboardkaart mee; je hoeft niets los te installeren. Na een update één keer de browser verversen (eventueel cache legen), daarna:
-
-1. Open een dashboard > **Bewerken** > **Kaart toevoegen**.
-2. Zoek naar **Road.io laadpalen**.
-
-De kaart toont al je laadpalen met status, prijs en afstand tot je thuislocatie, gesorteerd op afstand. Tik op een paal voor de details, of op de 🔔 om een laadwens aan te zetten. In de visuele editor kies je welke palen je wilt zien en of prijs en afstand getoond worden.
-
-In YAML:
-
-```yaml
-type: custom:road-ev-card
-title: Laadpalen        # leeg = geen titel
-devices: []             # leeg = alle Road.io laadpalen
-show_price: true
-show_distance: true
-sort: distance          # of: name
-```
+</details>
 
 ---
 
-## Stap 5: Laadwens (melding als er plek is)
+## Goed om te weten
 
-Zet de 🔔 aan bij een paal (op de kaart of met `switch.<paal>_laadwens`) en je krijgt een melding zodra er een socket vrij is. Geen automations nodig.
-
-**Instellen:** Instellingen > Apparaten & diensten > Road.io > **Configureren** bij een laadpaal.
-
-| Instelling | Standaard | Wat het doet |
-|---|---|---|
-| Meldingen sturen naar | – | Je telefoon(s) met de Home Assistant app, en/of de meldingen in Home Assistant zelf |
-| Laadwens uitzetten na de melding | aan | Eén melding per keer dat je de bel aanzet |
-| Melden als de paal weer bezet raakt | aan | Tot 30 minuten na een "vrij"-melding |
-| Persoon | – | Ben jij binnen 200 m als de paal bezet raakt, dan ben jij het: geen "weer bezet"-melding |
-| Laadwens automatisch uitzetten na | 0 (nooit) | Je krijgt dan een melding dat er geen plek vrijkwam |
-| Pas melden als hij minstens zo lang vrij is | 0 min | Tegen valse meldingen bij een korte wissel |
-
-Een nieuwe laadpaal neemt de instellingen van je vorige paal over. Met de knop **Testmelding** op het apparaat check je of alles werkt.
-
-**De melding** toont hoeveel sockets vrij zijn en de prijs, met de knoppen **Navigeer** (route in Maps) en **Stop** (bel uit). Is de paal al vrij als je de bel aanzet, dan krijg je meteen een melding. Een "weer bezet"-melding vervangt de eerdere melding op je telefoon.
-
-Goed om te weten: Road.io wordt elke minuut gecontroleerd, dus een melding kan tot een minuut na het vrijkomen binnenkomen.
-
-**Nieuwe entiteiten per laadpaal:**
-
-- `switch.<paal>_laadwens`: de bel; blijft bewaard na een herstart
-- `binary_sensor.<paal>_vrij`: aan als er minstens één socket vrij is
-- `button.<paal>_testmelding`: stuurt een testmelding
+- **Onofficiële API.** Zie hierboven: als Road.io iets verandert, ligt dit plat tot iemand het fixt. Die iemand is waarschijnlijk een AI.
+- **Eén keer per minuut.** De status wordt elke minuut opgehaald. Een melding kan dus tot een minuut na het vrijkomen binnenkomen. Vaker vragen kan, maar dan is de kans groter dat Road.io ons eruit gooit.
+- **Geen sleutels of accounts.** De kaart-API heeft geen login nodig; er staan nergens wachtwoorden of API keys in deze repo.
+- **Wat er naar Road.io gaat.** Elke minuut alleen de Location ID's van je palen. Tijdens het zoeken bij het toevoegen ook een vak rond de plek die je kiest, standaard je thuislocatie, net als wanneer je over hun kaart scrollt.
 
 ---
+
+## Licentie
+
+MIT. Doe ermee wat je wilt, maar klaag niet als het stuk gaat.
