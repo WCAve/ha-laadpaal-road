@@ -11,13 +11,14 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.loader import async_get_integration
 
 from .api import RoadApiClient
 from .const import CARD_URL, CONF_LOCATION_ID, DOMAIN
-from .coordinator import RoadDataUpdateCoordinator
+from .coordinator import RoadDataUpdateCoordinator, location_gone_issue_id
 from .watcher import RoadWatcher
 
 PLATFORMS: list[Platform] = [
@@ -68,6 +69,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: RoadConfigEntry) -> bool
 async def async_unload_entry(hass: HomeAssistant, entry: RoadConfigEntry) -> bool:
     """Verwijder de integratie correct uit het geheugen."""
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: RoadConfigEntry) -> None:
+    """Laadpaal verwijderd: ruim zijn reparatiemelding op."""
+    ir.async_delete_issue(hass, DOMAIN, location_gone_issue_id(entry.entry_id))
 
 
 async def _async_register_card(hass: HomeAssistant) -> None:

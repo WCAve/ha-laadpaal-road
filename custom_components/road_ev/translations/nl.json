@@ -70,6 +70,7 @@
           "notify_targets": "Meldingen sturen naar",
           "disarm_after_notify": "Laadwens uitzetten na de melding",
           "notify_when_taken": "Melden als de paal weer bezet raakt voordat je er bent",
+          "disarm_others": "Mijn andere laadwensen uitzetten zodra deze paal vrij is",
           "person": "Persoon (om te herkennen dat jij de paal zelf bezet)",
           "expire_hours": "Laadwens automatisch uitzetten na",
           "min_free_minutes": "Pas melden als hij minstens zo lang vrij is"
@@ -79,9 +80,24 @@
           "notify_when_taken": "Geldt tot 30 minuten na een 'vrij'-melding.",
           "person": "Is deze persoon binnen 200 m als de paal bezet raakt, dan ben jij het: geen 'weer bezet'-melding en de laadwens gaat uit.",
           "expire_hours": "0 = nooit.",
-          "min_free_minutes": "Voorkomt valse meldingen als een socket maar heel even vrij is. 0 = meteen melden."
+          "min_free_minutes": "Voorkomt valse meldingen als een socket maar heel even vrij is. 0 = meteen melden.",
+          "disarm_others": "Handig als je meerdere palen tegelijk volgt: je krijgt één melding voor de eerste die vrij komt, en de andere bellen gaan uit."
         }
       }
+    }
+  },
+  "issues": {
+    "api_unreachable": {
+      "title": "Road.io is niet bereikbaar",
+      "description": "Road.io reageert al niet sinds {since}. De laadpaalsensoren staan op niet beschikbaar tot het weer werkt. Duurt het veel langer, dan heeft Road.io de kaart-API misschien veranderd of geblokkeerd. Deze melding verdwijnt vanzelf zodra het weer werkt."
+    },
+    "api_changed": {
+      "title": "Road.io heeft de API veranderd",
+      "description": "Road.io antwoordt, maar niet in het formaat dat deze integratie kent ({error}). De integratie gebruikt de onofficiële kaart-API van Road.io, en die is blijkbaar veranderd. Kijk of er een update van de integratie is. Deze melding verdwijnt vanzelf zodra het weer werkt."
+    },
+    "location_gone": {
+      "title": "Laadpaal {name} bestaat niet meer",
+      "description": "Road.io kent Location ID {location_id} ({name}) niet meer. De paal is misschien weggehaald of heeft een nieuw ID gekregen. Verwijder deze laadpaal en voeg hem opnieuw toe via zoeken op de kaart."
     }
   }
 }

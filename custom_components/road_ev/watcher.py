@@ -11,6 +11,9 @@ Werking per laadpaal (config entry):
   bij de paal, dan ben jij het zelf en komt er geen melding.
 * De laadwens gaat uit: na de melding (optie), na X uur (optie), via de
   "Stop" knop in de melding, of als jij bij de paal aankomt en hem bezet.
+* Meerdere palen tegelijk (optie, standaard aan): de eerste paal die vrij
+  komt meldt zich, en de laadwensen op de andere palen gaan dan uit. Zo krijg
+  je één melding voor "maakt niet uit welke, als er maar plek is".
 """
 
 from __future__ import annotations
@@ -31,6 +34,7 @@ from .const import (
     ACTION_STOP_PREFIX,
     ARRIVAL_RADIUS_M,
     CONF_DISARM_AFTER_NOTIFY,
+    CONF_DISARM_OTHERS,
     CONF_EXPIRE_HOURS,
     CONF_MIN_FREE_MINUTES,
     CONF_NOTIFY_TARGETS,
@@ -39,6 +43,7 @@ from .const import (
     DEFAULT_OPTIONS,
     DOMAIN,
     FOLLOW_UP_WINDOW,
+    GROUP_ARM_GRACE,
     TARGET_PERSISTENT,
 )
 from .data import coordinates, evses, free_count, price_per_kwh
@@ -51,6 +56,8 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 EVENT_MOBILE_APP_ACTION = "mobile_app_notification_action"
+# hass.data sleutel: wanneer een "eerste vrije paal"-melding is verstuurd.
+DATA_GROUP_NOTIFIED_AT = f"{DOMAIN}_group_notified_at"
 
 
 class RoadWatcher:
@@ -149,6 +156,16 @@ class RoadWatcher:
         meters = distance(lat, lon, coords[0], coords[1])
         return meters is not None and meters <= ARRIVAL_RADIUS_M
 
+    def _other_watchers(self) -> list[RoadWatcher]:
+        """Watchers van de andere geladen laadpalen."""
+        others: list[RoadWatcher] = []
+        for entry in self.hass.config_entries.async_entries(DOMAIN):
+            data = getattr(entry, "runtime_data", None)
+            watcher = getattr(data, "watcher", None)
+            if watcher is not None and watcher is not self:
+                others.append(watcher)
+        return others
+
     @callback
     def _update_listeners(self) -> None:
         for update in list(self._listeners):
@@ -188,6 +205,19 @@ class RoadWatcher:
     def async_arm(self) -> None:
         """Zet de laadwens aan."""
         if self.armed:
+            return
+        # Net een "eerste vrije paal"-melding gehad (bv. alle bellen tegelijk
+        # aangezet en er was er al één vrij)? Dan is deze wens al vervuld.
+        group_at: datetime | None = self.hass.data.get(DATA_GROUP_NOTIFIED_AT)
+        if (
+            self.options[CONF_DISARM_OTHERS]
+            and group_at is not None
+            and dt_util.utcnow() - group_at <= GROUP_ARM_GRACE
+        ):
+            _LOGGER.debug(
+                "%s: andere paal is net vrij gemeld, niet aangezet", self.name
+            )
+            self._update_listeners()
             return
         self.armed = True
         self._notified = False
@@ -307,6 +337,15 @@ class RoadWatcher:
         if self.options[CONF_NOTIFY_WHEN_TAKEN]:
             self._follow_until = dt_util.utcnow() + FOLLOW_UP_WINDOW
         title, message = self.free_message()
+
+        if self.options[CONF_DISARM_OTHERS]:
+            self.hass.data[DATA_GROUP_NOTIFIED_AT] = dt_util.utcnow()
+            stopped = [w for w in self._other_watchers() if w.armed]
+            for other in stopped:
+                other.async_disarm()
+            if stopped:
+                names = ", ".join(sorted(w.name for w in stopped))
+                message += f"\nLaadwens uitgezet voor: {names}."
         self._run(
             self.async_send(title, message, stop_button=True),
             f"{DOMAIN} free notification",

@@ -19,12 +19,12 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .api import (
     RoadApiClient,
     RoadApiError,
-    RoadConnectionError,
     RoadLocationNotFoundError,
 )
 from .const import (
     CONF_ADDRESS,
     CONF_DISARM_AFTER_NOTIFY,
+    CONF_DISARM_OTHERS,
     CONF_EXPIRE_HOURS,
     CONF_LOCATION,
     CONF_LOCATION_ID,
@@ -272,7 +272,7 @@ class RoadConfigFlow(ConfigFlow, domain=DOMAIN):
                 await api.async_get_location(location_id)
             except RoadLocationNotFoundError:
                 errors[CONF_LOCATION_ID] = "invalid_location"
-            except RoadConnectionError:
+            except RoadApiError:
                 errors["base"] = "cannot_connect"
             except Exception:
                 _LOGGER.exception("Onverwachte fout bij controleren van Location ID")
@@ -336,6 +336,7 @@ class RoadOptionsFlow(OptionsFlow):
                 ),
                 vol.Required(CONF_DISARM_AFTER_NOTIFY): selector.BooleanSelector(),
                 vol.Required(CONF_NOTIFY_WHEN_TAKEN): selector.BooleanSelector(),
+                vol.Required(CONF_DISARM_OTHERS): selector.BooleanSelector(),
                 vol.Optional(CONF_PERSON): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain="person")
                 ),

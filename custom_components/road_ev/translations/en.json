@@ -70,6 +70,7 @@
           "notify_targets": "Send notifications to",
           "disarm_after_notify": "Turn the charge wish off after notifying",
           "notify_when_taken": "Notify if it's taken again before you arrive",
+          "disarm_others": "Turn off my other charge wishes when this charger is free",
           "person": "Person (to recognise that you took the charger yourself)",
           "expire_hours": "Turn the charge wish off automatically after",
           "min_free_minutes": "Only notify when free for at least"
@@ -79,9 +80,24 @@
           "notify_when_taken": "Applies for 30 minutes after a 'free' notification.",
           "person": "If this person is within 200 m when the charger becomes taken, it's you: no 'taken again' notification, and the charge wish turns off.",
           "expire_hours": "0 = never.",
-          "min_free_minutes": "Prevents false alarms when a socket is only briefly free. 0 = notify straight away."
+          "min_free_minutes": "Prevents false alarms when a socket is only briefly free. 0 = notify straight away.",
+          "disarm_others": "Handy when you follow several chargers at once: you get one notification for the first one that frees up, and the other bells turn off."
         }
       }
+    }
+  },
+  "issues": {
+    "api_unreachable": {
+      "title": "Road.io can't be reached",
+      "description": "Road.io hasn't responded since {since}. The charger sensors show as unavailable until it's back. If it lasts much longer, Road.io may have changed or blocked its map API. This notice disappears by itself once it works again."
+    },
+    "api_changed": {
+      "title": "Road.io changed its API",
+      "description": "Road.io responded, but not in the format this integration knows ({error}). The integration uses Road.io's unofficial map API, which apparently changed. Check for an update of the integration. This notice disappears by itself once it works again."
+    },
+    "location_gone": {
+      "title": "Charger {name} no longer exists",
+      "description": "Road.io doesn't know Location ID {location_id} ({name}) anymore. The charger may have been removed or moved to a new ID. Remove this charger and add it again via the map search."
     }
   }
 }
