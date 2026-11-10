@@ -1,8 +1,7 @@
 """Sensor platform voor Road.io.
 
-Let op: de namen en unique_id's van deze sensoren zijn bewust gelijk gebleven
-aan v2.1, zodat bestaande entity_id's (en de radar-template, die zoekt naar
-``*_beschikbaarheid`` en ``*_coordinaten``) blijven werken.
+Let op: de unique_id's van deze sensoren zijn bewust gelijk gebleven aan v2.1,
+zodat bestaande entity_id's (en de radar-template) blijven werken.
 """
 
 from __future__ import annotations
@@ -13,9 +12,12 @@ from typing import Any
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.const import EntityCategory, UnitOfPower
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import RoadConfigEntry
+from .const import DOMAIN
 from .coordinator import RoadDataUpdateCoordinator
 from .data import evses, free_count, price_per_kwh
 from .entity import RoadEntity
@@ -49,6 +51,7 @@ async def async_setup_entry(
 ) -> None:
     """Maak de sensoren aan voor de Road.io lader."""
     coordinator = entry.runtime_data.coordinator
+    _async_clear_old_availability_name(hass, entry)
 
     async_add_entities(
         [
@@ -82,6 +85,39 @@ async def async_setup_entry(
     entry.async_on_unload(coordinator.async_add_listener(_async_add_new_sockets))
 
 
+@callback
+def _async_clear_old_availability_name(
+    hass: HomeAssistant, entry: RoadConfigEntry
+) -> None:
+    """Haal een achtergebleven "<paal> Beschikbaarheid" naam weg (vanaf v2.6).
+
+    De beschikbaarheid-sensor heeft geen eigen naam meer en heet nu gewoon zoals
+    de laadpaal. Staat er nog een met de hand ingestelde naam die alleen de oude
+    standaardnaam herhaalt ("Beschikbaarheid" of "<paal> Beschikbaarheid"),
+    bijvoorbeeld door de naam-migratie van Home Assistant 2026.11, dan wordt die
+    gewist. Echt eigen namen blijven staan.
+    """
+    registry = er.async_get(hass)
+    unique_id = f"road_{entry.data['location_id']}_availability"
+    entity_id = registry.async_get_entity_id("sensor", DOMAIN, unique_id)
+    if entity_id is None:
+        return
+    reg_entry = registry.async_get(entity_id)
+    if reg_entry is None or not reg_entry.name:
+        return
+
+    names = {entry.title}
+    if reg_entry.device_id and (
+        device := dr.async_get(hass).async_get(reg_entry.device_id)
+    ):
+        names.update(n for n in (device.name, device.name_by_user) if n)
+    old_defaults = {"beschikbaarheid"} | {
+        f"{name} beschikbaarheid".casefold() for name in names
+    }
+    if " ".join(reg_entry.name.split()).casefold() in old_defaults:
+        registry.async_update_entity(entity_id, name=None)
+
+
 class RoadBaseEntity(RoadEntity, SensorEntity):
     """Basisklasse voor Road sensoren."""
 
@@ -110,7 +146,11 @@ class RoadLocationPriceSensor(RoadBaseEntity):
 class RoadAvailabilitySensor(RoadBaseEntity):
     """Samenvattende sensor voor de beschikbaarheid van de hele paal."""
 
-    _attr_name = "Beschikbaarheid"
+    # Geen eigen naam: dit is de hoofdsensor van de laadpaal en heet dus gewoon
+    # zoals de paal ("Eksterweg"). Sinds Home Assistant 2026.11 zet HA de
+    # apparaatnaam als context áchter de entiteitnaam; "Beschikbaarheid
+    # Eksterweg" werd in Android Auto afgekapt tot "Beschikbaarh...".
+    _attr_name = None
     # translation_key: hiermee vindt de kaart deze sensor terug.
     _attr_translation_key = "availability"
     _attr_icon = "mdi:ev-plug-type2"
