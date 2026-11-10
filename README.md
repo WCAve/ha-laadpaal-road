@@ -88,7 +88,7 @@ De melding toont hoeveel sockets vrij zijn en de prijs, met de knoppen **Navigee
 
 | Entiteit | Wat |
 |---|---|
-| `sensor.<paal>_beschikbaarheid` | "1 van de 2 vrij", met attributen `vrije_plekken` en `totale_plekken` |
+| `sensor.<paal>_beschikbaarheid` | De hoofdsensor: "1 van de 2 vrij", met attributen `vrije_plekken` en `totale_plekken`. Heet gewoon zoals de paal (zie hieronder). Bij nieuw toegevoegde palen is het entity ID `sensor.<paal>` |
 | `sensor.<paal>_prijs` | Prijs per kWh incl. btw |
 | `sensor.<paal>_socket_<n>` | Status per socket (Vrij, Bezet, Buiten gebruik, …) |
 | `sensor.<paal>_socket_<n>_max_vermogen` | Maximaal vermogen per socket in kW |
@@ -100,13 +100,15 @@ De melding toont hoeveel sockets vrij zijn en de prijs, met de knoppen **Navigee
 
 Komen er sockets bij, dan verschijnen die vanzelf.
 
+**Waarom heet de beschikbaarheid gewoon "Eksterweg"?** Sinds Home Assistant 2026.11 zet HA de naam van het apparaat áchter de naam van de entiteit. "Beschikbaarheid" werd daardoor "Beschikbaarheid Eksterweg", en Android Auto kapte dat lekker af tot "Beschikbaarh…". Nu is de beschikbaarheid de hoofdsensor van de paal en heeft hij geen eigen naam meer, dus zie je overal gewoon de naam van de paal met "1 van de 2 vrij" erachter. Wil je een andere naam? Hernoem de paal (het apparaat), niet de sensor.
+
 ---
 
 ## Extra: de radar (template sensor)
 
 Uit de tijd van vóór de kaart: een template sensor die de dichtstbijzijnde paal met een vrije socket zoekt. De kaart doet grotendeels hetzelfde, maar als je het als sensor wilt hebben (voor automations bijvoorbeeld), plak dan dit in je `configuration.yaml`. Dezelfde code staat in `templates/sensor_closest_available_charger.txt`.
 
-> De template zoekt naar sensoren die eindigen op `_beschikbaarheid` en `_coordinaten`. Hernoem die entiteiten dus niet, anders vindt hij niks.
+> De template vindt de palen via het attribuut `vrije_plekken` en zoekt daar de bijbehorende `_coordinaten` sensor bij. Verander dus geen entity ID's, anders vindt hij niks.
 
 <details>
 <summary>Template tonen</summary>
