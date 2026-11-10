@@ -11,8 +11,20 @@
       },
       "search": {
         "title": "Waar wil je laden?",
-        "description": "Zet de pin op de plek waar je wilt laden en sleep de cirkel om te bepalen hoe ver er gezocht wordt (maximaal {max_radius} m).",
+        "description": "Typ een adres of plaats en klik op Verzenden om de kaart erheen te verplaatsen, of zet de pin zelf. Sleep de cirkel om te bepalen hoe ver er gezocht wordt (maximaal {max_radius} m). Adressen worden opgezocht via [© OpenStreetMap](https://www.openstreetmap.org/copyright).",
         "data": {
+          "address": "Adres of plaats (optioneel)",
+          "location": "Zoekgebied"
+        },
+        "data_description": {
+          "address": "Je thuislocatie staat al op de kaart; die hoef je niet te typen."
+        }
+      },
+      "search_found": {
+        "title": "Klopt deze plek?",
+        "description": "📍 Gevonden: **{place}**\n\nKlik op Verzenden om laadpalen rond de pin te zoeken. Je kunt de pin nog verschuiven, de cirkel aanpassen of een ander adres typen. Adres opgezocht via [© OpenStreetMap](https://www.openstreetmap.org/copyright).",
+        "data": {
+          "address": "Adres of plaats (optioneel)",
           "location": "Zoekgebied"
         }
       },
@@ -41,7 +53,9 @@
       "invalid_location": "Road.io kent dit Location ID niet.",
       "unknown": "Onverwachte fout, kijk in de logs van Home Assistant.",
       "no_chargers": "Geen Road.io laadpalen gevonden in dit gebied. Probeer een grotere cirkel of een andere plek.",
-      "all_added": "Alle laadpalen in dit gebied zijn al toegevoegd."
+      "all_added": "Alle laadpalen in dit gebied zijn al toegevoegd.",
+      "geocode_failed": "Kon het adres niet opzoeken bij OpenStreetMap. Probeer het later opnieuw of zet de pin zelf.",
+      "address_not_found": "Adres niet gevonden. Probeer het anders te schrijven, bijvoorbeeld met de plaatsnaam erbij."
     },
     "abort": {
       "already_configured": "Deze laadlocatie is al toegevoegd."

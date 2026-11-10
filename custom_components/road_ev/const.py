@@ -24,6 +24,15 @@ SEARCH_RADIUS_DEFAULT: Final = 500
 SEARCH_RADIUS_MIN: Final = 100
 SEARCH_RADIUS_MAX: Final = 3000
 SEARCH_MAX_RESULTS: Final = 50
+CONF_ADDRESS: Final = "address"
+
+# Adres opzoeken (OpenStreetMap Nominatim). Moet uit te zetten/te vervangen
+# zijn als OSM daarom vraagt: pas dan alleen deze URL aan.
+GEOCODE_URL: Final = "https://nominatim.openstreetmap.org/search"
+GEOCODE_USER_AGENT: Final = (
+    "ha-road-ev (Home Assistant integration; https://github.com/WCAve/ha-laadpaal-road)"
+)
+GEOCODE_TIMEOUT: Final = 10
 
 # Opties (Configureren) voor de "Laadwens" meldingen
 CONF_NOTIFY_TARGETS: Final = "notify_targets"
