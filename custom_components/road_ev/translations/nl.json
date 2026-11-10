@@ -11,7 +11,7 @@
       },
       "search": {
         "title": "Waar wil je laden?",
-        "description": "Typ een adres of plaats en klik op Verzenden om de kaart erheen te verplaatsen, of zet de pin zelf. Sleep de cirkel om te bepalen hoe ver er gezocht wordt (maximaal {max_radius} m). Adressen worden opgezocht via [© OpenStreetMap](https://www.openstreetmap.org/copyright).",
+        "description": "Typ een adres of plaats en klik op Verzenden om de kaart erheen te verplaatsen, of zet de pin zelf. Sleep de cirkel om te bepalen hoe ver er gezocht wordt (maximaal {max_radius} m). Adressen worden opgezocht via {osm}.",
         "data": {
           "address": "Adres of plaats (optioneel)",
           "location": "Zoekgebied"
@@ -22,7 +22,7 @@
       },
       "search_found": {
         "title": "Klopt deze plek?",
-        "description": "📍 Gevonden: **{place}**\n\nKlik op Verzenden om laadpalen rond de pin te zoeken. Je kunt de pin nog verschuiven, de cirkel aanpassen of een ander adres typen. Adres opgezocht via [© OpenStreetMap](https://www.openstreetmap.org/copyright).",
+        "description": "📍 Gevonden: **{place}**\n\nKlik op Verzenden om laadpalen rond de pin te zoeken. Je kunt de pin nog verschuiven, de cirkel aanpassen of een ander adres typen. Adres opgezocht via {osm}.",
         "data": {
           "address": "Adres of plaats (optioneel)",
           "location": "Zoekgebied"
