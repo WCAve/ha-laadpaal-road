@@ -18,5 +18,28 @@
     "abort": {
       "already_configured": "This charging location has already been added."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Charge wish notifications",
+        "description": "Turn on the bell (Laadwens) on the card or the switch and you'll get a notification as soon as a socket at this charger is free. Settings are copied from your previous charger when you add a new one.",
+        "data": {
+          "notify_targets": "Send notifications to",
+          "disarm_after_notify": "Turn the charge wish off after notifying",
+          "notify_when_taken": "Notify if it's taken again before you arrive",
+          "person": "Person (to recognise that you took the charger yourself)",
+          "expire_hours": "Turn the charge wish off automatically after",
+          "min_free_minutes": "Only notify when free for at least"
+        },
+        "data_description": {
+          "notify_targets": "Phones with the Home Assistant app, or the notification area in Home Assistant itself.",
+          "notify_when_taken": "Applies for 30 minutes after a 'free' notification.",
+          "person": "If this person is within 200 m when the charger becomes taken, it's you: no 'taken again' notification, and the charge wish turns off.",
+          "expire_hours": "0 = never.",
+          "min_free_minutes": "Prevents false alarms when a socket is only briefly free. 0 = notify straight away."
+        }
+      }
+    }
   }
 }
