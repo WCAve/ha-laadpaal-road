@@ -14,7 +14,7 @@
  */
 
 const DOMAIN = "road_ev";
-const CARD_VERSION = "2.7.0";
+const CARD_VERSION = "2.8.0";
 
 const DEFAULTS = {
   title: "Laadpalen",
@@ -200,6 +200,8 @@ class RoadEvCard extends HTMLElement {
         free,
         statusText: unavailable ? "Niet bereikbaar" : avail.state,
         price: price && !isUnavailable(price) ? Number(price.state) : null,
+        startFee: Number(price?.attributes?.starttarief || 0),
+        blockingFee: price?.attributes?.blokkeertarief || null,
         distance,
         wishOn: wish?.state === "on",
         remaining: wish?.state === "on" ? formatRemaining(wish.attributes.verloopt_om) : "",
@@ -269,7 +271,10 @@ class RoadEvCard extends HTMLElement {
     const cfg = this._config;
     const state = r.unavailable ? "unavailable" : r.free > 0 ? "free" : "busy";
     const details = [`<span class="status">${escapeHtml(r.statusText)}</span>`];
-    if (cfg.show_price && r.price != null) details.push(escapeHtml(formatPrice(r.price)));
+    if (cfg.show_price && r.price != null) {
+      const start = r.startFee > 0 ? ` + €${r.startFee.toFixed(2).replace(".", ",")} start` : "";
+      details.push(escapeHtml(formatPrice(r.price) + start));
+    }
     if (cfg.show_distance && r.distance != null) details.push(escapeHtml(formatDistance(r.distance)));
 
     let wishLine = "";
@@ -300,6 +305,9 @@ class RoadEvCard extends HTMLElement {
         <div class="info">
           <div class="name">${escapeHtml(r.name)}</div>
           <div class="details">${details.join('<span class="sep">·</span>')}</div>
+          ${cfg.show_price && r.blockingFee
+            ? `<div class="fee-line" title="Blokkeertarief: vanaf de start van je sessie"><ha-icon icon="mdi:timer-alert-outline"></ha-icon>${escapeHtml(r.blockingFee)}</div>`
+            : ""}
           ${wishLine}
         </div>
         ${statsButton}
@@ -484,6 +492,8 @@ const STYLE = `
   .free .status { color: var(--success-color, #43a047); font-weight: 500; }
   .busy .status { color: var(--error-color, #db4437); font-weight: 500; }
   .sep { margin: 0 6px; }
+  .fee-line { margin-top: 2px; font-size: 0.85em; color: var(--warning-color, #ffa600); display: flex; align-items: center; gap: 4px; }
+  .fee-line ha-icon { --mdc-icon-size: 16px; }
   .wish-line { margin-top: 2px; font-size: 0.85em; color: var(--primary-color); display: flex; align-items: center; gap: 4px; }
   .bell { flex: none; width: 40px; height: 40px; border: none; border-radius: 50%; background: none; cursor: pointer; color: var(--secondary-text-color); display: flex; align-items: center; justify-content: center; }
   .bell:hover { background: var(--secondary-background-color); }

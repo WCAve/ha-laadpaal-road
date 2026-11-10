@@ -7,6 +7,7 @@ zodat bestaande entity_id's (en de radar-template) blijven werken.
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -19,12 +20,14 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.event import async_track_time_interval
 
 from . import RoadConfigEntry
 from .const import DOMAIN
 from .coordinator import RoadDataUpdateCoordinator
-from .data import evses, free_count, price_per_kwh
+from .data import evses, free_count
 from .entity import RoadEntity
+from .tariff import evaluate, tariffs_differ
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -91,6 +94,26 @@ async def async_setup_entry(
     _async_add_new_sockets()
     entry.async_on_unload(coordinator.async_add_listener(_async_add_new_sockets))
 
+    # 5. Starttarief en blokkeertarief: alleen als de paal die heeft (geen
+    #    stapel sensoren van €0). Komt er later een bij, dan verschijnt hij.
+    added_fees: set[str] = set()
+
+    @callback
+    def _async_add_fee_sensors() -> None:
+        tariff_now = evaluate(coordinator.data)
+        new_entities: list[SensorEntity] = []
+        if tariff_now.start_fee > 0 and "start" not in added_fees:
+            added_fees.add("start")
+            new_entities.append(RoadStartFeeSensor(coordinator))
+        if tariff_now.blocking_fee and "blocking" not in added_fees:
+            added_fees.add("blocking")
+            new_entities.append(RoadBlockingFeeSensor(coordinator))
+        if new_entities:
+            async_add_entities(new_entities)
+
+    _async_add_fee_sensors()
+    entry.async_on_unload(coordinator.async_add_listener(_async_add_fee_sensors))
+
 
 @callback
 def _async_clear_old_availability_name(
@@ -129,7 +152,23 @@ class RoadBaseEntity(RoadEntity, SensorEntity):
     """Basisklasse voor Road sensoren."""
 
 
-class RoadLocationPriceSensor(RoadBaseEntity):
+class RoadTariffEntity(RoadBaseEntity):
+    """Tariefsensor: elke minuut opnieuw uitrekenen (dag/nacht, datums)."""
+
+    async def async_added_to_hass(self) -> None:
+        """Ook zonder nieuwe Road.io data elke minuut bijwerken."""
+        await super().async_added_to_hass()
+
+        @callback
+        def _tick(_now: datetime) -> None:
+            self.async_write_ha_state()
+
+        self.async_on_remove(
+            async_track_time_interval(self.hass, _tick, timedelta(minutes=1))
+        )
+
+
+class RoadLocationPriceSensor(RoadTariffEntity):
     """Centrale prijs sensor voor de hele laadpaal (incl. btw)."""
 
     # Geen SensorDeviceClass.MONETARY: die accepteert alleen een valuta als
@@ -146,8 +185,77 @@ class RoadLocationPriceSensor(RoadBaseEntity):
 
     @property
     def native_value(self) -> float | None:
-        """Prijs per kWh van het eerste tarief van de eerste socket."""
-        return price_per_kwh(self.coordinator.data)
+        """Prijs per kWh incl. btw die nu geldt voor een nieuwe sessie."""
+        return evaluate(self.coordinator.data).energy
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Starttarief en blokkeertarief, ook voor de kaart en de melding."""
+        tariff_now = evaluate(self.coordinator.data)
+        fee = tariff_now.blocking_fee
+        return {
+            "starttarief": tariff_now.start_fee,
+            "blokkeertarief": fee.text if fee else None,
+            "verschilt_per_socket": tariffs_differ(self.coordinator.data),
+        }
+
+
+class RoadStartFeeSensor(RoadTariffEntity):
+    """Vast bedrag per laadsessie (incl. btw)."""
+
+    _attr_name = "Starttarief"
+    _attr_translation_key = "start_fee"
+    _attr_device_class = SensorDeviceClass.MONETARY
+    _attr_native_unit_of_measurement = "EUR"
+    _attr_icon = "mdi:cash-plus"
+    _attr_suggested_display_precision = 2
+
+    def __init__(self, coordinator: RoadDataUpdateCoordinator) -> None:
+        """Initialiseer de sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"road_{self.location_id}_start_fee"
+
+    @property
+    def native_value(self) -> float:
+        """Starttarief voor een sessie die nu start (0 = geen)."""
+        return evaluate(self.coordinator.data).start_fee
+
+
+class RoadBlockingFeeSensor(RoadBaseEntity):
+    """Prijs per uur die na een gratis periode gaat tellen."""
+
+    _attr_name = "Blokkeertarief"
+    _attr_translation_key = "blocking_fee"
+    _attr_native_unit_of_measurement = "EUR/h"
+    _attr_icon = "mdi:timer-alert-outline"
+    _attr_suggested_display_precision = 2
+
+    def __init__(self, coordinator: RoadDataUpdateCoordinator) -> None:
+        """Initialiseer de sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"road_{self.location_id}_blocking_fee"
+
+    @property
+    def native_value(self) -> float | None:
+        """Prijs per uur zodra het tarief gaat tellen (0 = geen meer)."""
+        fee = evaluate(self.coordinator.data).blocking_fee
+        return fee.per_hour if fee else 0.0
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Wanneer en hoe het tarief telt."""
+        fee = evaluate(self.coordinator.data).blocking_fee
+        if fee is None:
+            return {"omschrijving": "Geen blokkeertarief"}
+        return {
+            "omschrijving": fee.text,
+            "gratis_minuten": fee.free_minutes,
+            "betaald_tot_minuten": fee.until_minutes,
+            "tijden": fee.window,
+            "dagen": list(fee.days) if fee.days else None,
+            "tijdens_laden_per_uur": fee.charging_per_hour,
+            "na_laden_per_uur": fee.parking_per_hour,
+        }
 
 
 class RoadAvailabilitySensor(RoadBaseEntity):

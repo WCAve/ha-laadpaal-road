@@ -46,7 +46,8 @@ from .const import (
     GROUP_ARM_GRACE,
     TARGET_PERSISTENT,
 )
-from .data import coordinates, evses, free_count, price_per_kwh
+from .data import coordinates, evses, free_count
+from .tariff import evaluate
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -369,9 +370,13 @@ class RoadWatcher:
         """Titel en tekst voor een "vrij" melding."""
         data = self.coordinator.data
         message = f"{free_count(data)} van de {len(evses(data))} sockets vrij"
-        price = price_per_kwh(data)
-        if price is not None:
-            message += f" · €{price:.2f}/kWh".replace(".", ",")
+        tariff_now = evaluate(data)
+        if tariff_now.energy is not None:
+            message += f" · €{tariff_now.energy:.2f}/kWh".replace(".", ",")
+            if tariff_now.start_fee > 0:
+                message += f" + €{tariff_now.start_fee:.2f} start".replace(".", ",")
+        if tariff_now.blocking_fee:
+            message += f" · {tariff_now.blocking_fee.text}"
         return f"🔌 {self.name} is vrij", message
 
     async def async_send(
