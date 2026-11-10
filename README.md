@@ -30,7 +30,7 @@ Vereist Home Assistant 2025.1 of nieuwer. Ouder kan werken, maar dat heeft niema
 
 ## Laadpalen toevoegen
 
-1. Ga naar **Instellingen** > **Apparaten & diensten** > **Integratie toevoegen** en zoek naar **EV Charger**.
+1. Ga naar **Instellingen** > **Apparaten & diensten** > **Integratie toevoegen** en zoek naar **EV Location Radar**.
 2. Kies **Zoeken op de kaart**.
 3. Typ een adres of plaats en klik op **Verzenden**: de kaart springt erheen. Klopt de pin? Klik nog een keer op **Verzenden**. Je kunt de pin ook gewoon zelf verslepen (standaard staat hij op je thuislocatie), en met de cirkel bepaal je hoe ver er gezocht wordt, tot maximaal 3 km.
 4. Kies een paal uit de lijst: adres, aanbieder, hoeveel sockets er nu vrij zijn en de afstand. Laat de naam leeg om het adres als naam te gebruiken.

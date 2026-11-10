@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Road.io laadpaal toevoegen",
+        "title": "Laadpaal toevoegen",
         "description": "Hoe wil je de laadpaal vinden?",
         "menu_options": {
           "search": "Zoeken op de kaart",
@@ -49,10 +49,10 @@
       }
     },
     "error": {
-      "cannot_connect": "Kan de Road.io API niet bereiken. Probeer het later opnieuw.",
-      "invalid_location": "Road.io kent dit Location ID niet.",
+      "cannot_connect": "Kan de laadpalen-API niet bereiken. Probeer het later opnieuw.",
+      "invalid_location": "Dit Location ID is onbekend.",
       "unknown": "Onverwachte fout, kijk in de logs van Home Assistant.",
-      "no_chargers": "Geen Road.io laadpalen gevonden in dit gebied. Probeer een grotere cirkel of een andere plek.",
+      "no_chargers": "Geen laadpalen gevonden in dit gebied. Probeer een grotere cirkel of een andere plek.",
       "all_added": "Alle laadpalen in dit gebied zijn al toegevoegd.",
       "geocode_failed": "Kon het adres niet opzoeken bij OpenStreetMap. Probeer het later opnieuw of zet de pin zelf.",
       "address_not_found": "Adres niet gevonden. Probeer het anders te schrijven, bijvoorbeeld met de plaatsnaam erbij."
@@ -92,16 +92,16 @@
   },
   "issues": {
     "api_unreachable": {
-      "title": "Road.io is niet bereikbaar",
-      "description": "Road.io reageert al niet sinds {since}. De laadpaalsensoren staan op niet beschikbaar tot het weer werkt. Duurt het veel langer, dan heeft Road.io de kaart-API misschien veranderd of geblokkeerd. Deze melding verdwijnt vanzelf zodra het weer werkt."
+      "title": "De laadpalen-API is niet bereikbaar",
+      "description": "De laadpalen-API reageert al niet sinds {since}. De laadpaalsensoren staan op niet beschikbaar tot het weer werkt. Duurt het veel langer, dan is de onofficiële API misschien veranderd of geblokkeerd. Deze melding verdwijnt vanzelf zodra het weer werkt."
     },
     "api_changed": {
-      "title": "Road.io heeft de API veranderd",
-      "description": "Road.io antwoordt, maar niet in het formaat dat deze integratie kent ({error}). De integratie gebruikt de onofficiële kaart-API van Road.io, en die is blijkbaar veranderd. Kijk of er een update van de integratie is. Deze melding verdwijnt vanzelf zodra het weer werkt."
+      "title": "De laadpalen-API is veranderd",
+      "description": "De laadpalen-API antwoordt, maar niet in het formaat dat deze integratie kent ({error}). De integratie gebruikt een onofficiële kaart-API, en die is blijkbaar veranderd. Kijk of er een update van de integratie is. Deze melding verdwijnt vanzelf zodra het weer werkt."
     },
     "location_gone": {
       "title": "Laadpaal {name} bestaat niet meer",
-      "description": "Road.io kent Location ID {location_id} ({name}) niet meer. De paal is misschien weggehaald of heeft een nieuw ID gekregen. Verwijder deze laadpaal en voeg hem opnieuw toe via zoeken op de kaart."
+      "description": "Location ID {location_id} ({name}) bestaat niet meer. De paal is misschien weggehaald of heeft een nieuw ID gekregen. Verwijder deze laadpaal en voeg hem opnieuw toe via zoeken op de kaart."
     }
   }
 }

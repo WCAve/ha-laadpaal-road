@@ -1,11 +1,11 @@
 /*
- * Road.io laadpalen kaart
+ * Laadpalen kaart (EV Location Radar)
  * Wordt automatisch geladen door de road_ev integratie; geen losse installatie nodig.
  *
  * Config (alles optioneel):
  *   type: custom:road-ev-card
  *   title: Laadpalen
- *   devices: [<device_id>, ...]   # leeg = alle Road.io laadpalen
+ *   devices: [<device_id>, ...]   # leeg = alle laadpalen van deze integratie
  *   show_price: true
  *   show_distance: true
  *   show_group_button: true       # "Alle palen" bel in de kop
@@ -102,7 +102,7 @@ function formatRemaining(iso) {
 const isUnavailable = (state) =>
   !state || state.state === "unavailable" || state.state === "unknown";
 
-/** Zoek alle Road.io laadpalen (één per apparaat) en hun entiteiten. */
+/** Zoek alle laadpalen van deze integratie (één per apparaat) en hun entiteiten. */
 function findChargers(hass) {
   const byDevice = new Map();
   for (const entry of Object.values(hass.entities || {})) {
@@ -266,7 +266,7 @@ class RoadEvCard extends HTMLElement {
     const cfg = this._config;
     const body = rows.length
       ? rows.map((r, i) => this._rowHtml(r, i)).join("")
-      : `<div class="empty">Geen Road.io laadpalen gevonden.</div>`;
+      : `<div class="empty">Geen laadpalen gevonden.</div>`;
 
     // "Alle palen": één bel voor alle getoonde palen; de eerste die vrij komt meldt zich.
     const wishRows = rows.filter((r) => r.charge_wish);
@@ -626,8 +626,8 @@ if (!customElements.get("road-ev-card")) {
   window.customCards = window.customCards || [];
   window.customCards.push({
     type: "road-ev-card",
-    name: "Road.io laadpalen",
-    description: "Status, prijs en afstand van je Road.io laadpalen, met een bel voor meldingen.",
+    name: "Laadpalen (EV Location Radar)",
+    description: "Status, prijs en afstand van je laadpalen, met een bel voor meldingen.",
     preview: true,
     documentationURL: "https://github.com/WCAve/ha-laadpaal-road",
   });

@@ -1,8 +1,8 @@
 """Diagnostiek voor een laadpaal.
 
-Downloaden: Instellingen > Apparaten & diensten > Road.io > ⋮ > Diagnostiek.
+Downloaden: Instellingen > Apparaten & diensten > EV Location Radar > ⋮ > Diagnostiek.
 
-Bevat de ruwe Road.io data van deze laadpaal (handig om tarieven of een
+Bevat de ruwe API-data van deze laadpaal (handig om tarieven of een
 gewijzigde API te bekijken) en de toestand van de laadwens. Meldingsdoelen
 en de gekozen persoon worden weggelaten.
 """
@@ -52,5 +52,5 @@ async def async_get_config_entry_diagnostics(
             "notified": watcher._notified,  # noqa: SLF001
             "follow_up_until": iso(watcher._follow_until),  # noqa: SLF001
         },
-        "road_io_data": coordinator.data,
+        "api_data": coordinator.data,
     }

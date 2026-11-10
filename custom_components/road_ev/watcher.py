@@ -267,7 +267,7 @@ class RoadWatcher:
 
     @callback
     def _handle_coordinator_update(self) -> None:
-        """Nieuwe data van Road.io: bepaal of er een melding moet komen."""
+        """Nieuwe data binnen: bepaal of er een melding moet komen."""
         free = self.free
         if free is None:
             return
@@ -402,7 +402,7 @@ class RoadWatcher:
                 raise HomeAssistantError(
                     f"Er zijn nog geen meldingsdoelen ingesteld voor {self.name}. "
                     "Kies ze via Instellingen > Apparaten & diensten > "
-                    "Road.io > Configureren."
+                    "EV Location Radar > Configureren."
                 )
             _LOGGER.debug("%s: geen meldingsdoelen ingesteld", self.name)
             return

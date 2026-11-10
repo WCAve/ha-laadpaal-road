@@ -1,4 +1,4 @@
-"""Sensor platform voor Road.io.
+"""Sensor platform.
 
 Let op: de unique_id's van deze sensoren zijn bewust gelijk gebleven aan v2.1,
 zodat bestaande entity_id's (en de radar-template) blijven werken.
@@ -56,7 +56,7 @@ async def async_setup_entry(
     entry: RoadConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Maak de sensoren aan voor de Road.io lader."""
+    """Maak de sensoren aan voor de laadpaal."""
     coordinator = entry.runtime_data.coordinator
     _async_clear_old_availability_name(hass, entry)
 
@@ -156,7 +156,7 @@ class RoadTariffEntity(RoadBaseEntity):
     """Tariefsensor: elke minuut opnieuw uitrekenen (dag/nacht, datums)."""
 
     async def async_added_to_hass(self) -> None:
-        """Ook zonder nieuwe Road.io data elke minuut bijwerken."""
+        """Ook zonder nieuwe data elke minuut bijwerken."""
         await super().async_added_to_hass()
 
         @callback
@@ -366,7 +366,7 @@ class RoadSocketStatusSensor(RoadSocketBaseSensor):
             return None
         status = evse.get("status")
         if status not in STATUS_MAP:
-            _LOGGER.debug("Onbekende socket status van Road.io: %s", status)
+            _LOGGER.debug("Onbekende socket status van de API: %s", status)
         return STATUS_MAP.get(status, STATUS_UNKNOWN)
 
 

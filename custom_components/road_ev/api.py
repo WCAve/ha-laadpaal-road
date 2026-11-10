@@ -1,4 +1,4 @@
-"""API client voor Road.io (E-flux)."""
+"""API client voor de (onofficiële) laadpalenkaart-API."""
 
 from __future__ import annotations
 
@@ -20,14 +20,14 @@ _HEADERS = {
     "Referer": "https://www.e-flux.io/",
 }
 
-# Zo nauwkeurig groepeert de kaart-API zoekresultaten (zoals de kaart van E-flux).
+# Zo nauwkeurig groepeert de kaart-API zoekresultaten (zoals de openbare kaart).
 _GRID_PRECISION = 8
 # Niet te veel locaties in één verzoek opvragen.
 _LOCATIONS_BATCH = 50
 
 
 class RoadApiError(Exception):
-    """Algemene fout bij het praten met de Road.io API."""
+    """Algemene fout bij het praten met de API."""
 
 
 class RoadConnectionError(RoadApiError):
@@ -55,7 +55,7 @@ def distance_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
 
 class RoadApiClient:
-    """Minimale client voor de (onofficiële) kaart-API van Road.io."""
+    """Minimale client voor de (onofficiële) kaart-API."""
 
     def __init__(self, session: aiohttp.ClientSession) -> None:
         """Initialiseer de client met de gedeelde aiohttp sessie van HA."""
@@ -70,19 +70,19 @@ class RoadApiClient:
                     response.raise_for_status()
                     result = await response.json(content_type=None)
         except TimeoutError as err:
-            raise RoadConnectionError("Timeout bij verbinding met Road.io") from err
+            raise RoadConnectionError("Timeout bij verbinding met de API") from err
         except (aiohttp.ClientError, ValueError) as err:
             raise RoadConnectionError(f"API fout: {err}") from err
 
         if not isinstance(result, dict):
-            raise RoadConnectionError("Onverwacht antwoord van de Road.io API")
+            raise RoadConnectionError("Onverwacht antwoord van de API")
         return result
 
     async def async_get_location(self, location_id: str) -> dict[str, Any]:
         """Haal één locatie op, inclusief operator, geoLocation en evses."""
         result = await self._post("locations", {"ids": [location_id]})
         if "data" not in result:
-            raise RoadFormatError("Antwoord van Road.io bevat geen 'data'")
+            raise RoadFormatError("Antwoord van de API bevat geen 'data'")
         data = result["data"]
         if not data:
             raise RoadLocationNotFoundError(
@@ -92,7 +92,7 @@ class RoadApiClient:
         if not isinstance(location, dict) or not isinstance(
             location.get("evses"), list
         ):
-            raise RoadFormatError("Locatie van Road.io heeft geen 'evses' lijst")
+            raise RoadFormatError("Locatie in de API heeft geen 'evses' lijst")
         return location
 
     async def async_search(
