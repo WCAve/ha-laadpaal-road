@@ -9,7 +9,11 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorStateClass,
+)
 from homeassistant.const import EntityCategory, UnitOfPower
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
@@ -62,6 +66,9 @@ async def async_setup_entry(
             RoadLocationPriceSensor(coordinator),
             # 3. De overkoepelende beschikbaarheid (aantal sockets vrij)
             RoadAvailabilitySensor(coordinator),
+            # 4. Aantal vrije sockets als getal, met lange-termijn statistiek
+            #    (voor "meestal vrij om..." op de kaart).
+            RoadFreeSocketsSensor(coordinator),
         ]
     )
 
@@ -176,6 +183,31 @@ class RoadAvailabilitySensor(RoadBaseEntity):
         """Getallen voor automatiseringen en de radar-template."""
         free, total = self._counts()
         return {"vrije_plekken": free, "totale_plekken": total}
+
+
+class RoadFreeSocketsSensor(RoadBaseEntity):
+    """Aantal vrije sockets; HA bewaart hiervan uurgemiddelden (statistiek)."""
+
+    _attr_name = "Vrije sockets"
+    _attr_translation_key = "free_sockets"
+    _attr_icon = "mdi:ev-plug-type2"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 0
+
+    def __init__(self, coordinator: RoadDataUpdateCoordinator) -> None:
+        """Initialiseer de sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"road_{self.location_id}_free_sockets"
+
+    @property
+    def native_value(self) -> int:
+        """Aantal sockets met status AVAILABLE."""
+        return free_count(self.coordinator.data)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, int]:
+        """Totaal aantal sockets, voor de kaart."""
+        return {"totale_plekken": len(self.evses)}
 
 
 class RoadSocketBaseSensor(RoadBaseEntity):

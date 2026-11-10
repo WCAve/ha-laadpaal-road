@@ -41,6 +41,7 @@ CONF_NOTIFY_WHEN_TAKEN: Final = "notify_when_taken"
 CONF_EXPIRE_HOURS: Final = "expire_hours"
 CONF_MIN_FREE_MINUTES: Final = "min_free_minutes"
 CONF_PERSON: Final = "person"
+CONF_DISARM_OTHERS: Final = "disarm_others"
 
 DEFAULT_OPTIONS: Final[dict] = {
     CONF_NOTIFY_TARGETS: [],
@@ -48,6 +49,7 @@ DEFAULT_OPTIONS: Final[dict] = {
     CONF_NOTIFY_WHEN_TAKEN: True,
     CONF_EXPIRE_HOURS: 0,
     CONF_MIN_FREE_MINUTES: 0,
+    CONF_DISARM_OTHERS: True,
 }
 
 # Speciaal meldingsdoel: de meldingen in Home Assistant zelf.
@@ -57,6 +59,13 @@ TARGET_PERSISTENT: Final = "persistent_notification"
 FOLLOW_UP_WINDOW: Final = timedelta(minutes=30)
 # Binnen deze afstand van de paal ga je ervan uit dat jij de paal bezet.
 ARRIVAL_RADIUS_M: Final = 200
+
+# Bel je meerdere palen tegelijk aan en is er één al vrij, dan tellen
+# laadwensen die binnen deze tijd daarna worden aangezet als "al geregeld".
+GROUP_ARM_GRACE: Final = timedelta(seconds=10)
+
+# Reparatiemeldingen: pas melden als Road.io zo lang onbereikbaar is.
+UNREACHABLE_REPAIR_AFTER: Final = timedelta(minutes=30)
 
 # mobile_app actie-id voor de "Stop" knop in een melding.
 ACTION_STOP_PREFIX: Final = "ROAD_EV_STOP_"

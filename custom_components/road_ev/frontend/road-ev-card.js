@@ -8,19 +8,54 @@
  *   devices: [<device_id>, ...]   # leeg = alle Road.io laadpalen
  *   show_price: true
  *   show_distance: true
+ *   show_group_button: true       # "Alle palen" bel in de kop
+ *   show_stats: true              # knop voor "meestal vrij" per paal
  *   sort: distance | name
  */
 
 const DOMAIN = "road_ev";
-const CARD_VERSION = "2.6.0";
+const CARD_VERSION = "2.7.0";
 
 const DEFAULTS = {
   title: "Laadpalen",
   devices: [],
   show_price: true,
   show_distance: true,
+  show_group_button: true,
+  show_stats: true,
   sort: "distance",
 };
+
+const WEEKDAYS = ["Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo"];
+const STATS_DAYS = 28;
+const STATS_MAX_AGE_MS = 30 * 60 * 1000;
+
+/** Uurstatistiek -> gemiddeld aantal vrije sockets per weekdag x uur. */
+function buildHeatmap(points) {
+  const sum = Array.from({ length: 7 }, () => new Array(24).fill(0));
+  const count = Array.from({ length: 7 }, () => new Array(24).fill(0));
+  const days = new Set();
+  for (const p of points || []) {
+    if (p.mean == null) continue;
+    const start = new Date(typeof p.start === "number" ? p.start : Date.parse(p.start));
+    if (Number.isNaN(start.getTime())) continue;
+    const wd = (start.getDay() + 6) % 7; // maandag = 0
+    const h = start.getHours();
+    sum[wd][h] += Number(p.mean);
+    count[wd][h] += 1;
+    days.add(start.toDateString());
+  }
+  const grid = sum.map((row, wd) => row.map((v, h) => (count[wd][h] ? v / count[wd][h] : null)));
+  return { grid, days: days.size };
+}
+
+/** Rood (0 vrij) via oranje naar groen (gemiddeld 1 of meer vrij). */
+function heatColor(mean) {
+  const hue = Math.round(Math.min(Math.max(mean, 0), 1) * 120);
+  return `hsl(${hue}, 60%, 45%)`;
+}
+
+const formatMean = (v) => v.toFixed(1).replace(".", ",");
 
 const escapeHtml = (value) =>
   String(value ?? "").replace(/[&<>"']/g, (c) => ({
@@ -69,6 +104,7 @@ function findChargers(hass) {
       else if (id.startsWith("binary_sensor.")) role = "free";
       else if ("vrije_plekken" in attrs) role = "availability";
       else if (attrs.unit_of_measurement === "EUR/kWh") role = "price";
+      else if (id.endsWith("_vrije_sockets")) role = "free_sockets";
       else if (id.endsWith("_coordinaten")) role = "coordinates";
     }
     if (role) roles[role] = id;
@@ -94,6 +130,12 @@ class RoadEvCard extends HTMLElement {
 
   static getStubConfig() {
     return {};
+  }
+
+  constructor() {
+    super();
+    this._expanded = new Set(); // device_id's met open statistiek
+    this._stats = {}; // entity_id -> { status, fetchedAt, heatmap, error }
   }
 
   setConfig(config) {
@@ -176,7 +218,7 @@ class RoadEvCard extends HTMLElement {
   _render() {
     if (!this._config || !this._hass) return;
     const rows = this._collect();
-    const key = JSON.stringify([this._config, rows]);
+    const key = JSON.stringify([this._config, rows, [...this._expanded], this._statsVersion || 0]);
     if (key === this._lastKey) return;
     this._lastKey = key;
     this._rows = rows;
@@ -197,11 +239,29 @@ class RoadEvCard extends HTMLElement {
       ? rows.map((r, i) => this._rowHtml(r, i)).join("")
       : `<div class="empty">Geen Road.io laadpalen gevonden.</div>`;
 
+    // "Alle palen": één bel voor alle getoonde palen; de eerste die vrij komt meldt zich.
+    const wishRows = rows.filter((r) => r.charge_wish);
+    let groupButton = "";
+    if (cfg.show_group_button && wishRows.length >= 2) {
+      const allOn = wishRows.every((r) => r.wishOn);
+      groupButton = `<button class="group ${allOn ? "on" : ""}" data-action="group"
+          title="${allOn ? "Alle laadwensen uitzetten" : "Meld de eerste paal die vrij komt"}">
+          <ha-icon icon="${allOn ? "mdi:bell-off-outline" : "mdi:bell-plus-outline"}"></ha-icon>
+          <span>${allOn ? "Alle uit" : "Eerste vrije"}</span>
+        </button>`;
+    }
+    const header = cfg.title || groupButton
+      ? `<div class="header ${cfg.title ? "" : "no-title"}">
+           ${cfg.title ? `<h1 class="card-header">${escapeHtml(cfg.title)}</h1>` : "<span></span>"}
+           ${groupButton}
+         </div>`
+      : "";
+
     this.shadowRoot.innerHTML = `
       <style>${STYLE}</style>
       <ha-card>
-        ${cfg.title ? `<h1 class="card-header">${escapeHtml(cfg.title)}</h1>` : ""}
-        <div class="list ${cfg.title ? "" : "no-title"}">${body}</div>
+        ${header}
+        <div class="list ${header ? "" : "no-title"}">${body}</div>
       </ha-card>`;
   }
 
@@ -226,6 +286,14 @@ class RoadEvCard extends HTMLElement {
          </button>`
       : "";
 
+    const expanded = this._expanded.has(r.deviceId);
+    const statsButton = cfg.show_stats && r.free_sockets
+      ? `<button class="stats-btn ${expanded ? "on" : ""}" data-action="stats" data-index="${index}"
+           title="Wanneer is deze paal meestal vrij?" aria-expanded="${expanded}">
+           <ha-icon icon="mdi:chart-box-outline"></ha-icon>
+         </button>`
+      : "";
+
     return `
       <div class="row ${state} ${r.wishOn ? "wishing" : ""}" data-action="more-info" data-index="${index}" role="button" tabindex="0">
         <div class="icon"><ha-icon icon="${state === "free" ? "mdi:ev-station" : "mdi:ev-plug-type2"}"></ha-icon></div>
@@ -234,13 +302,118 @@ class RoadEvCard extends HTMLElement {
           <div class="details">${details.join('<span class="sep">·</span>')}</div>
           ${wishLine}
         </div>
+        ${statsButton}
         ${bell}
+      </div>
+      ${expanded ? this._statsHtml(r) : ""}`;
+  }
+
+  _statsHtml(r) {
+    const entry = this._stats[r.free_sockets];
+    if (!entry || entry.status === "loading") {
+      return `<div class="stats muted">Statistiek laden…</div>`;
+    }
+    if (entry.status === "error") {
+      return `<div class="stats muted">Kon de statistiek niet laden (${escapeHtml(entry.error)}).</div>`;
+    }
+    const { grid, days } = entry.heatmap;
+    if (!days) {
+      return `<div class="stats muted">Nog geen statistiek. Home Assistant houdt vanaf nu per uur bij hoeveel sockets vrij zijn; na een paar dagen zie je hier wanneer deze paal meestal vrij is.</div>`;
+    }
+    const now = new Date();
+    const nowWd = (now.getDay() + 6) % 7;
+    const nowH = now.getHours();
+    const nowMean = grid[nowWd][nowH];
+    const summary = nowMean == null
+      ? "Voor dit uur is nog geen statistiek."
+      : `Rond deze tijd meestal <b>${formatMean(nowMean)}</b> vrij.`;
+
+    const hours = Array.from({ length: 24 }, (_, h) =>
+      `<div class="hh">${h % 6 === 0 ? h : ""}</div>`).join("");
+    const rowsHtml = grid.map((cells, wd) => {
+      const tds = cells.map((mean, h) => {
+        const now = wd === nowWd && h === nowH ? " now" : "";
+        if (mean == null) return `<div class="cell empty-cell${now}" title="${WEEKDAYS[wd]} ${h}:00 · geen gegevens"></div>`;
+        return `<div class="cell${now}" style="background:${heatColor(mean)}"
+          title="${WEEKDAYS[wd]} ${h}:00 · gemiddeld ${formatMean(mean)} vrij"></div>`;
+      }).join("");
+      return `<div class="wd">${WEEKDAYS[wd]}</div>${tds}`;
+    }).join("");
+
+    return `
+      <div class="stats">
+        <div class="stats-summary">${summary} <span class="muted">Op basis van ${days} ${days === 1 ? "dag" : "dagen"}.</span></div>
+        <div class="heatmap"><div></div>${hours}${rowsHtml}</div>
+        <div class="legend muted">
+          <span class="swatch" style="background:${heatColor(0)}"></span>vol
+          <span class="swatch" style="background:${heatColor(0.5)}"></span>soms
+          <span class="swatch" style="background:${heatColor(1)}"></span>meestal plek
+        </div>
       </div>`;
+  }
+
+  async _loadStats(entityId) {
+    const cached = this._stats[entityId];
+    if (cached && (cached.status === "loading" || (cached.status === "ok" && Date.now() - cached.fetchedAt < STATS_MAX_AGE_MS))) {
+      return;
+    }
+    this._stats[entityId] = { status: "loading" };
+    this._bumpStats();
+    const end = new Date();
+    const start = new Date(end.getTime() - STATS_DAYS * 24 * 3600 * 1000);
+    try {
+      const result = await this._hass.callWS({
+        type: "recorder/statistics_during_period",
+        start_time: start.toISOString(),
+        end_time: end.toISOString(),
+        statistic_ids: [entityId],
+        period: "hour",
+        types: ["mean"],
+      });
+      this._stats[entityId] = {
+        status: "ok",
+        fetchedAt: Date.now(),
+        heatmap: buildHeatmap(result?.[entityId]),
+      };
+    } catch (err) {
+      this._stats[entityId] = { status: "error", error: err?.message || String(err) };
+    }
+    this._bumpStats();
+  }
+
+  /** Bellen één voor één aanzetten, dichtstbijzijnde eerst: is er al een paal
+   *  vrij, dan meldt die zich en worden de rest niet meer aangezet. */
+  async _armInOrder(entityIds) {
+    for (const entityId of entityIds) {
+      try {
+        await this._hass.callService("switch", "turn_on", { entity_id: entityId });
+      } catch (err) {
+        console.warn("road-ev-card: kon laadwens niet aanzetten", entityId, err);
+      }
+    }
+  }
+
+  _bumpStats() {
+    this._statsVersion = (this._statsVersion || 0) + 1;
+    this._render();
   }
 
   _onClick(ev) {
     const target = ev.target.closest("[data-action]");
     if (!target) return;
+
+    if (target.dataset.action === "group") {
+      ev.stopPropagation();
+      const wishRows = (this._rows || []).filter((r) => r.charge_wish);
+      const allOn = wishRows.every((r) => r.wishOn);
+      if (allOn) {
+        this._hass.callService("switch", "turn_off", { entity_id: wishRows.map((r) => r.charge_wish) });
+      } else {
+        this._armInOrder(wishRows.filter((r) => !r.wishOn).map((r) => r.charge_wish));
+      }
+      return;
+    }
+
     const row = this._rows?.[Number(target.dataset.index)];
     if (!row) return;
 
@@ -249,6 +422,18 @@ class RoadEvCard extends HTMLElement {
       this._hass.callService("switch", row.wishOn ? "turn_off" : "turn_on", {
         entity_id: row.charge_wish,
       });
+      return;
+    }
+    if (target.dataset.action === "stats") {
+      ev.stopPropagation();
+      if (this._expanded.has(row.deviceId)) {
+        this._expanded.delete(row.deviceId);
+        this._render();
+      } else {
+        this._expanded.add(row.deviceId);
+        this._render();
+        this._loadStats(row.free_sockets);
+      }
       return;
     }
     this.dispatchEvent(
@@ -262,6 +447,26 @@ class RoadEvCard extends HTMLElement {
 }
 
 const STYLE = `
+  .header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-right: 12px; }
+  .header.no-title { padding-top: 8px; }
+  .group { display: flex; align-items: center; gap: 6px; border: 1px solid var(--divider-color, rgba(0,0,0,.12)); border-radius: 18px; padding: 6px 12px; background: none; cursor: pointer; color: var(--primary-text-color); font: inherit; font-size: 0.9em; white-space: nowrap; }
+  .group:hover { background: var(--secondary-background-color); }
+  .group.on { color: var(--primary-color); border-color: var(--primary-color); }
+  .group ha-icon { --mdc-icon-size: 18px; }
+  .stats-btn { flex: none; width: 40px; height: 40px; border: none; border-radius: 50%; background: none; cursor: pointer; color: var(--secondary-text-color); display: flex; align-items: center; justify-content: center; }
+  .stats-btn:hover { background: var(--secondary-background-color); }
+  .stats-btn.on { color: var(--primary-color); }
+  .stats { margin: 0 8px 8px 60px; font-size: 0.85em; color: var(--primary-text-color); }
+  .muted { color: var(--secondary-text-color); }
+  .stats-summary { margin-bottom: 6px; }
+  .heatmap { display: grid; grid-template-columns: 22px repeat(24, 1fr); gap: 2px; align-items: center; }
+  .hh { font-size: 0.75em; color: var(--secondary-text-color); height: 12px; line-height: 12px; }
+  .wd { font-size: 0.8em; color: var(--secondary-text-color); }
+  .cell { height: 12px; border-radius: 2px; }
+  .cell.empty-cell { background: var(--secondary-background-color); }
+  .cell.now { outline: 2px solid var(--primary-text-color); outline-offset: -1px; }
+  .legend { display: flex; align-items: center; gap: 4px; margin-top: 6px; font-size: 0.85em; }
+  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-left: 6px; }
   .card-header { margin: 0; padding: 16px 16px 4px; font-size: var(--ha-card-header-font-size, 1.5em); font-weight: normal; color: var(--ha-card-header-color, var(--primary-text-color)); }
   .list { padding: 4px 8px 8px; }
   .list.no-title { padding-top: 8px; }
@@ -296,6 +501,8 @@ const EDITOR_SCHEMA = [
     schema: [
       { name: "show_price", selector: { boolean: {} } },
       { name: "show_distance", selector: { boolean: {} } },
+      { name: "show_group_button", selector: { boolean: {} } },
+      { name: "show_stats", selector: { boolean: {} } },
     ],
   },
   {
@@ -317,6 +524,8 @@ const EDITOR_LABELS = {
   devices: "Laadpalen (leeg = allemaal)",
   show_price: "Prijs tonen",
   show_distance: "Afstand tonen",
+  show_group_button: "Knop \"Eerste vrije\" tonen",
+  show_stats: "Statistiek-knop tonen",
   sort: "Sorteren op",
 };
 

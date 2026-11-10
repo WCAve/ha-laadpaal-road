@@ -38,6 +38,10 @@ class RoadLocationNotFoundError(RoadApiError):
     """De API kent het opgegeven Location ID niet."""
 
 
+class RoadFormatError(RoadApiError):
+    """De API antwoordt, maar niet in het formaat dat we kennen."""
+
+
 def distance_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Afstand in meters tussen twee punten (haversine)."""
     rad = math.radians
@@ -76,12 +80,20 @@ class RoadApiClient:
 
     async def async_get_location(self, location_id: str) -> dict[str, Any]:
         """Haal één locatie op, inclusief operator, geoLocation en evses."""
-        data = (await self._post("locations", {"ids": [location_id]})).get("data")
+        result = await self._post("locations", {"ids": [location_id]})
+        if "data" not in result:
+            raise RoadFormatError("Antwoord van Road.io bevat geen 'data'")
+        data = result["data"]
         if not data:
             raise RoadLocationNotFoundError(
                 f"Geen locatie gevonden voor ID {location_id}"
             )
-        return data[0]
+        location = data[0] if isinstance(data, list) else None
+        if not isinstance(location, dict) or not isinstance(
+            location.get("evses"), list
+        ):
+            raise RoadFormatError("Locatie van Road.io heeft geen 'evses' lijst")
+        return location
 
     async def async_search(
         self, latitude: float, longitude: float, radius_m: float

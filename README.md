@@ -12,6 +12,8 @@ Dit project hangt aan elkaar met pure vibes. Geen garanties, geen aansprakelijkh
 - Zoekt laadpalen voor je op een kaart, gewoon in Home Assistant.
 - Een dashboardkaart met al je palen, gesorteerd op afstand.
 - Een **Laadwens**: druk op de bel en je krijgt een melding op je telefoon zodra er plek is. Geen automations nodig.
+- Meerdere palen tegelijk volgen: één melding voor de eerste die vrij komt.
+- Een weekoverzicht per paal van wanneer hij meestal vrij is.
 
 ---
 
@@ -48,7 +50,10 @@ De integratie brengt zijn eigen dashboardkaart mee; er hoeft niets los geïnstal
 1. Open een dashboard > **Bewerken** > **Kaart toevoegen**.
 2. Zoek naar **Road.io laadpalen**.
 
-De kaart toont al je palen met status, prijs en afstand tot thuis. Tik op een paal voor de details, of op de 🔔 voor een laadwens. In de visuele editor kies je welke palen je ziet en of prijs en afstand getoond worden.
+De kaart toont al je palen met status, prijs en afstand tot thuis. Tik op een paal voor de details, of op de 🔔 voor een laadwens. In de visuele editor kies je welke palen je ziet en wat er getoond wordt.
+
+- **Eerste vrije** (rechtsboven): zet de bel aan op alle palen op de kaart. De eerste die vrij komt stuurt een melding en de rest gaat uit. Voor als het je niet uitmaakt wáár je laadt, als het maar ergens kan.
+- **📊 per paal**: een weekoverzicht van wanneer die paal meestal vrij is, per uur, op basis van de afgelopen 4 weken. Home Assistant begint pas met tellen na deze update, dus de eerste dagen is dat overzicht nog wat leeg. Geduld.
 
 Of in YAML, voor wie dat leuk vindt:
 
@@ -58,6 +63,8 @@ title: Laadpalen        # leeg = geen titel
 devices: []             # leeg = alle Road.io laadpalen
 show_price: true
 show_distance: true
+show_group_button: true # de "Eerste vrije" knop
+show_stats: true        # de 📊 knop
 sort: distance          # of: name
 ```
 
@@ -77,6 +84,7 @@ Zet de 🔔 aan bij een paal, op de kaart of met `switch.<paal>_laadwens`, en je
 | Persoon | – | Ben jij binnen 200 m als de paal bezet raakt, dan ben jij het zelf: geen "weer bezet"-melding |
 | Laadwens automatisch uitzetten na | 0 (nooit) | Je krijgt dan een melding dat er niks vrijkwam |
 | Pas melden als hij minstens zo lang vrij is | 0 min | Tegen valse hoop als iemand alleen even van auto wisselt |
+| Mijn andere laadwensen uitzetten zodra deze paal vrij is | aan | Volg je meerdere palen, dan krijg je één melding voor de eerste die vrij komt |
 
 Een nieuwe paal neemt de instellingen van je vorige paal over. Met de knop **Testmelding** op het apparaat check je of alles werkt, in plaats van te wachten tot er echt een plek vrijkomt.
 
@@ -94,6 +102,7 @@ De melding toont hoeveel sockets vrij zijn en de prijs, met de knoppen **Navigee
 | `sensor.<paal>_socket_<n>_max_vermogen` | Maximaal vermogen per socket in kW |
 | `sensor.<paal>_aanbieder` | Aanbieder (diagnostisch) |
 | `sensor.<paal>_coordinaten` | "lat, lon" (diagnostisch) |
+| `sensor.<paal>_vrije_sockets` | Aantal vrije sockets als getal; hier bewaart Home Assistant de statistiek van voor het weekoverzicht |
 | `binary_sensor.<paal>_vrij` | Aan als er minstens één socket vrij is |
 | `switch.<paal>_laadwens` | De bel; blijft bewaard na een herstart |
 | `button.<paal>_testmelding` | Stuurt een testmelding |
@@ -156,6 +165,15 @@ template:
 ```
 
 </details>
+
+---
+
+## Als het stuk gaat
+
+En dat gaat het een keer, want: onofficiële API.
+
+- **Reparaties.** Onder **Instellingen** > **Systeem** > **Reparaties** verschijnt een melding als Road.io langer dan een half uur niet reageert, als hun API ineens iets anders terugstuurt dan verwacht, of als een paal niet meer bestaat. Die meldingen verdwijnen vanzelf zodra het weer werkt.
+- **Diagnostiek.** Bij een laadpaal: **Instellingen** > **Apparaten & diensten** > **Road.io** > ⋮ > **Diagnostiek downloaden**. Daarin staat de ruwe data die Road.io over die paal stuurt, plus de toestand van de laadwens. Je meldingsdoelen en de gekozen persoon worden eruit gelaten. Handig om aan een issue (of een AI) te hangen.
 
 ---
 
