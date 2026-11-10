@@ -6,19 +6,19 @@ Dit project hangt aan elkaar met pure vibes. Geen garanties, geen aansprakelijkh
 
 ## Stap 1: De Location ID Finder
 
-Zonder de juiste Location ID doet de integratie niets. Omdat de API van de provider browser-beveiliging (CORS) heeft, moet je de bijgevoegde `index.html` (te vinden in de `web_tool` map) hosten via een Nginx-server die fungeert als reverse proxy. 
+Zonder de juiste Location ID doet de integratie niets. Omdat de Road.io API browser-beveiliging (CORS) heeft, moet je de bijgevoegde `index.html` (te vinden in de `web_tool` map) hosten via een Nginx-server die fungeert als reverse proxy. Het adres zoeken gaat rechtstreeks via OpenStreetMap (Nominatim) en heeft geen proxy nodig.
 
 Je vraagt je misschien af: kan dit makkelijker? Het antwoord is waarschijnlijk "ja". In my defense: I have no idea what I'm doing.
 
 ### Nginx Configuration
-Voeg dit block toe aan je Nginx server config om de API bereikbaar te maken voor het script. Vervang de placeholders door de daadwerkelijke URL's van de provider (zoek deze op in de netwerk-tab van je browser als je hun officiële kaart gebruikt):
+Zet `index.html` in de root van je Nginx site en voeg dit block toe aan dezelfde `server { ... }`. Het pad `/road-proxy/` moet precies zo heten, want de webtool roept dat aan.
 
 ```nginx
-location /provider-proxy/ {
-    proxy_pass https://[API_ENDPOINT_HIER]/;
-    proxy_set_header Host [API_HOST_HIER];
-    proxy_set_header Origin https://[PROVIDER_URL_HIER];
-    proxy_set_header Referer https://[PROVIDER_URL_HIER]/;
+location /road-proxy/ {
+    proxy_pass https://api.road.io/;
+    proxy_set_header Host api.road.io;
+    proxy_set_header Origin https://www.e-flux.io;
+    proxy_set_header Referer https://www.e-flux.io/;
     proxy_ssl_server_name on;
 
     add_header 'Access-Control-Allow-Origin' '*' always;
@@ -36,8 +36,8 @@ location /provider-proxy/ {
 ```
 
 1. Open je gehoste `index.html` in de browser.
-2. Zoek je gewenste locatie op de kaart.
-3. Klik op de markering en kopieer de Location ID.
+2. Klik op de kaart of zoek een adres; rechts verschijnen de laadpalen in de buurt, gesorteerd op afstand.
+3. Klik op een paal in de lijst en kopieer de Location ID.
 
 ---
 
@@ -47,13 +47,17 @@ location /provider-proxy/ {
 2. Klik op de drie puntjes rechtsboven > **Custom repositories**.
 3. Plak de URL van deze GitHub repo erin en kies bij Category voor **Integration**.
 4. Installeer de integratie en herstart Home Assistant.
-5. Ga naar **Settings** > **Devices & Services** > **Add Integration** en zoek naar de betreffende integratie om je locaties toe te voegen met de ID's uit Stap 1.
+5. Ga naar **Settings** > **Devices & Services** > **Add Integration** en zoek naar **Road.io (E-flux) EV Charger** om je locaties toe te voegen met de ID's uit Stap 1. Het ID wordt direct gecontroleerd bij Road.io, en dezelfde locatie kan maar één keer worden toegevoegd.
+
+Vereist Home Assistant 2025.1 of nieuwer.
 
 ---
 
 ## Stap 3: De Radar (Template Sensor)
 
-De integratie haalt de data op, deze sensor doet het rekenwerk. Hij vindt automatisch de dichtstbijzijnde vrije locatie op basis van de coördinaten in de diagnostic sensor. Plak dit in je `configuration.yaml`:
+De integratie haalt de data op, deze sensor doet het rekenwerk. Hij vindt automatisch de dichtstbijzijnde vrije locatie op basis van de coördinaten in de diagnostic sensor. Plak dit in je `configuration.yaml` (dezelfde code staat ook in `templates/sensor_closest_available_charger.txt`):
+
+> De template zoekt naar sensoren die eindigen op `_beschikbaarheid` en `_coordinaten`. Hernoem die entiteiten dus niet.
 
 ```yaml
 template:
@@ -66,13 +70,12 @@ template:
           {% set ns = namespace(distances=[]) %}
           {% for paal in palen %}
             {% set base_id = paal.entity_id | replace('_beschikbaarheid', '') %}
-            {% set coord_id = base_id ~ '_coordinaten' %}
-            {% set coord_state = states(coord_id) %}
-            {% if coord_state and ',' in coord_state %}
+            {% set coord_state = states(base_id ~ '_coordinaten') %}
+            {% if ',' in coord_state %}
               {% set lat = coord_state.split(',')[0] | trim | float(0) %}
               {% set lon = coord_state.split(',')[1] | trim | float(0) %}
-              {% set dist = distance(lat, lon) %}
-              {% if dist != None %}
+              {% set dist = distance(lat, lon) if lat != 0 and lon != 0 else None %}
+              {% if dist is not none %}
                 {% set ns.distances = ns.distances + [{"naam": paal.name | replace(" Beschikbaarheid", ""), "afstand": (dist * 1000) | round(0)}] %}
               {% endif %}
             {% endif %}
@@ -85,13 +88,12 @@ template:
             {% set ns = namespace(distances=[]) %}
             {% for paal in palen %}
               {% set base_id = paal.entity_id | replace('_beschikbaarheid', '') %}
-              {% set coord_id = base_id ~ '_coordinaten' %}
-              {% set coord_state = states(coord_id) %}
-              {% if coord_state and ',' in coord_state %}
+              {% set coord_state = states(base_id ~ '_coordinaten') %}
+              {% if ',' in coord_state %}
                 {% set lat = coord_state.split(',')[0] | trim | float(0) %}
                 {% set lon = coord_state.split(',')[1] | trim | float(0) %}
-                {% set dist = distance(lat, lon) %}
-                {% if dist != None %}
+                {% set dist = distance(lat, lon) if lat != 0 and lon != 0 else None %}
+                {% if dist is not none %}
                   {% set ns.distances = ns.distances + [{"naam": paal.name | replace(" Beschikbaarheid", ""), "afstand_m": (dist * 1000) | round(0), "vrije_sockets": paal.attributes.vrije_plekken}] %}
                 {% endif %}
               {% endif %}

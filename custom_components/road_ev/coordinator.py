@@ -1,35 +1,45 @@
 """DataUpdateCoordinator voor Road.io."""
-import asyncio
+
+from __future__ import annotations
+
 import logging
-import aiohttp
+from typing import TYPE_CHECKING, Any
+
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
-from .const import DOMAIN, SCAN_INTERVAL
+
+from .api import RoadApiClient, RoadApiError
+from .const import CONF_LOCATION_ID, DOMAIN, SCAN_INTERVAL
+
+if TYPE_CHECKING:
+    from . import RoadConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
 
-class EfluxDataUpdateCoordinator(DataUpdateCoordinator):
-    """Verwerkt de polling van de API elke 60 seconden."""
 
-    def __init__(self, hass, api, location_id):
+class RoadDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
+    """Haalt elke minuut de status van één laadlocatie op."""
+
+    config_entry: RoadConfigEntry
+
+    def __init__(
+        self, hass: HomeAssistant, entry: RoadConfigEntry, api: RoadApiClient
+    ) -> None:
+        """Initialiseer de coordinator."""
+        self.api = api
+        self.location_id: str = entry.data[CONF_LOCATION_ID]
         super().__init__(
             hass,
             _LOGGER,
-            name=f"{DOMAIN}_{location_id}",
+            config_entry=entry,
+            name=f"{DOMAIN}_{self.location_id}",
             update_interval=SCAN_INTERVAL,
+            always_update=False,
         )
-        self.api = api
-        self.location_id = location_id
 
-    async def _async_update_data(self):
-        """Voer de daadwerkelijke update uit."""
+    async def _async_update_data(self) -> dict[str, Any]:
+        """Haal de volledige locatie-dictionary op (operator, geoLocation, evses)."""
         try:
-            result = await self.api.async_get_locations(self.location_id)
-        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as err:
+            return await self.api.async_get_location(self.location_id)
+        except RoadApiError as err:
             raise UpdateFailed(f"Fout tijdens ophalen van data: {err}") from err
-
-        if not result or "data" not in result or not result["data"]:
-            raise UpdateFailed("Ongeldige of geen data ontvangen van de API")
-
-        # CRUCIALE FIX: Retourneer de volledige locatie-dictionary (index 0)
-        # Hierin zitten: operator, geoLocation én de evses lijst.
-        return result["data"][0]
