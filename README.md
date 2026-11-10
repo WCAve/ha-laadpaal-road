@@ -30,7 +30,7 @@ Vereist Home Assistant 2025.1 of nieuwer. Ouder kan werken, maar dat heeft niema
 
 1. Ga naar **Instellingen** > **Apparaten & diensten** > **Integratie toevoegen** en zoek naar **Road.io (E-flux) EV Charger**.
 2. Kies **Zoeken op de kaart**.
-3. Zet de pin waar je wilt laden (standaard je thuislocatie) en sleep de cirkel om te bepalen hoe ver er gezocht wordt, tot maximaal 3 km.
+3. Typ een adres of plaats en klik op **Verzenden**: de kaart springt erheen. Klopt de pin? Klik nog een keer op **Verzenden**. Je kunt de pin ook gewoon zelf verslepen (standaard staat hij op je thuislocatie), en met de cirkel bepaal je hoe ver er gezocht wordt, tot maximaal 3 km.
 4. Kies een paal uit de lijst: adres, aanbieder, hoeveel sockets er nu vrij zijn en de afstand. Laat de naam leeg om het adres als naam te gebruiken.
 
 Herhaal dit voor elke paal die je wilt volgen. Palen die je al hebt staan niet meer in de lijst.
@@ -163,6 +163,7 @@ template:
 - **Eén keer per minuut.** De status wordt elke minuut opgehaald. Een melding kan dus tot een minuut na het vrijkomen binnenkomen. Vaker vragen kan, maar dan is de kans groter dat Road.io ons eruit gooit.
 - **Geen sleutels of accounts.** De kaart-API heeft geen login nodig; er staan nergens wachtwoorden of API keys in deze repo.
 - **Wat er naar Road.io gaat.** Elke minuut alleen de Location ID's van je palen. Tijdens het zoeken bij het toevoegen ook een vak rond de plek die je kiest, standaard je thuislocatie, net als wanneer je over hun kaart scrollt.
+- **Wat er naar OpenStreetMap gaat.** Alleen als je bij het toevoegen een adres typt: dat adres, één keer, om het op de kaart te zetten. Je thuislocatie staat al op de kaart, dus die hoef je nergens te typen.
 
 ---
 

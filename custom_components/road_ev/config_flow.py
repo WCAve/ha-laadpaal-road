@@ -23,6 +23,7 @@ from .api import (
     RoadLocationNotFoundError,
 )
 from .const import (
+    CONF_ADDRESS,
     CONF_DISARM_AFTER_NOTIFY,
     CONF_EXPIRE_HOURS,
     CONF_LOCATION,
@@ -42,6 +43,7 @@ from .const import (
     TARGET_PERSISTENT,
 )
 from .data import evses, free_count
+from .geocode import GeocodeError, async_geocode
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -90,6 +92,8 @@ class RoadConfigFlow(ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         """Initialiseer de flow."""
         self._found: dict[str, dict[str, Any]] = {}
+        self._geocoded_query: str | None = None
+        self._place: str | None = None
 
     @staticmethod
     @callback
@@ -106,8 +110,14 @@ class RoadConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_search(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Kies een plek op de kaart; de integratie zoekt de laadpalen erbij."""
+        """Kies een plek: typ een adres en/of zet de pin op de kaart.
+
+        Met een (nieuw) adres verplaatst Verzenden alleen de kaart, zodat je
+        kunt zien waar hij terechtkwam. Nog een keer Verzenden zoekt dan de
+        laadpalen rond de pin.
+        """
         errors: dict[str, str] = {}
+        address = ""
         location = {
             "latitude": self.hass.config.latitude,
             "longitude": self.hass.config.longitude,
@@ -115,45 +125,97 @@ class RoadConfigFlow(ConfigFlow, domain=DOMAIN):
         }
 
         if user_input is not None:
-            location = user_input[CONF_LOCATION]
-            radius = float(location.get("radius") or SEARCH_RADIUS_DEFAULT)
-            radius = min(max(radius, SEARCH_RADIUS_MIN), SEARCH_RADIUS_MAX)
+            location = dict(user_input[CONF_LOCATION])
+            address = (user_input.get(CONF_ADDRESS) or "").strip()
 
-            api = RoadApiClient(async_get_clientsession(self.hass))
-            try:
-                results = await api.async_search(
-                    location["latitude"], location["longitude"], radius
-                )
-            except RoadApiError:
-                errors["base"] = "cannot_connect"
-            except Exception:
-                _LOGGER.exception("Onverwachte fout bij zoeken naar laadpalen")
-                errors["base"] = "unknown"
-            else:
-                configured = self._async_current_ids()
-                new = [loc for loc in results if loc["id"] not in configured]
-                if not results:
-                    errors["base"] = "no_chargers"
-                elif not new:
-                    errors["base"] = "all_added"
+            if address and address != self._geocoded_query:
+                try:
+                    place = await async_geocode(
+                        async_get_clientsession(self.hass),
+                        address,
+                        self.hass.config.language or "nl",
+                    )
+                except GeocodeError:
+                    errors["base"] = "geocode_failed"
+                except Exception:
+                    _LOGGER.exception("Onverwachte fout bij adres opzoeken")
+                    errors["base"] = "unknown"
                 else:
-                    self._found = {loc["id"]: loc for loc in new[:SEARCH_MAX_RESULTS]}
-                    return await self.async_step_pick()
+                    if place is None:
+                        errors[CONF_ADDRESS] = "address_not_found"
+                    else:
+                        # Onthoud de zoekterm: nog eens Verzenden = zoeken.
+                        self._geocoded_query = address
+                        self._place = place.name
+                        location["latitude"] = place.latitude
+                        location["longitude"] = place.longitude
+                return self._async_show_search_form(location, address, errors)
 
+            return await self._async_search_chargers(location, address)
+
+        return self._async_show_search_form(location, address, errors)
+
+    async def async_step_search_found(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Zelfde formulier, maar met de gevonden plek in de uitleg."""
+        return await self.async_step_search(user_input)
+
+    async def _async_search_chargers(
+        self, location: dict[str, Any], address: str
+    ) -> ConfigFlowResult:
+        """Zoek laadpalen rond de pin en ga door naar de keuzelijst."""
+        errors: dict[str, str] = {}
+        radius = float(location.get("radius") or SEARCH_RADIUS_DEFAULT)
+        radius = min(max(radius, SEARCH_RADIUS_MIN), SEARCH_RADIUS_MAX)
+
+        api = RoadApiClient(async_get_clientsession(self.hass))
+        try:
+            results = await api.async_search(
+                location["latitude"], location["longitude"], radius
+            )
+        except RoadApiError:
+            errors["base"] = "cannot_connect"
+        except Exception:
+            _LOGGER.exception("Onverwachte fout bij zoeken naar laadpalen")
+            errors["base"] = "unknown"
+        else:
+            configured = self._async_current_ids()
+            new = [loc for loc in results if loc["id"] not in configured]
+            if not results:
+                errors["base"] = "no_chargers"
+            elif not new:
+                errors["base"] = "all_added"
+            else:
+                self._found = {loc["id"]: loc for loc in new[:SEARCH_MAX_RESULTS]}
+                return await self.async_step_pick()
+
+        return self._async_show_search_form(location, address, errors)
+
+    @callback
+    def _async_show_search_form(
+        self, location: dict[str, Any], address: str, errors: dict[str, str]
+    ) -> ConfigFlowResult:
         schema = vol.Schema(
             {
+                vol.Optional(CONF_ADDRESS): selector.TextSelector(),
                 vol.Required(CONF_LOCATION): selector.LocationSelector(
                     selector.LocationSelectorConfig(radius=True, icon="mdi:ev-station")
-                )
+                ),
             }
         )
+        # Na een gevonden adres: ander uitleg-tekstje met de gevonden plek.
+        found = bool(address) and address == self._geocoded_query
         return self.async_show_form(
-            step_id="search",
+            step_id="search_found" if found else "search",
             data_schema=self.add_suggested_values_to_schema(
-                schema, {CONF_LOCATION: location}
+                schema, {CONF_ADDRESS: address, CONF_LOCATION: location}
             ),
             errors=errors,
-            description_placeholders={"max_radius": str(SEARCH_RADIUS_MAX)},
+            description_placeholders={
+                "max_radius": str(SEARCH_RADIUS_MAX),
+                "place": self._place or "",
+            },
         )
 
     async def async_step_pick(
