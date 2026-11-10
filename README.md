@@ -52,6 +52,7 @@ De integratie brengt zijn eigen dashboardkaart mee; er hoeft niets los geïnstal
 
 De kaart toont al je palen met status, prijs en afstand tot thuis. Tik op een paal voor de details, of op de 🔔 voor een laadwens. In de visuele editor kies je welke palen je ziet en wat er getoond wordt.
 
+- **Tarieven**: naast de kWh-prijs staat een eventueel starttarief ("€0,67/kWh + €0,35 start"), en een oranje regel als er een blokkeertarief is ("na 5 u €3,00/u (07:00–23:00)"). Die laatste is degene waar je op moet letten als je je auto er een nachtje laat staan. Of eigenlijk: een dagje.
 - **Eerste vrije** (rechtsboven): zet de bel aan op alle palen op de kaart. De eerste die vrij komt stuurt een melding en de rest gaat uit. Voor als het je niet uitmaakt wáár je laadt, als het maar ergens kan.
 - **📊 per paal**: een weekoverzicht van wanneer die paal meestal vrij is, per uur, op basis van de afgelopen 4 weken. Home Assistant begint pas met tellen na deze update, dus de eerste dagen is dat overzicht nog wat leeg. Geduld.
 
@@ -97,7 +98,9 @@ De melding toont hoeveel sockets vrij zijn en de prijs, met de knoppen **Navigee
 | Entiteit | Wat |
 |---|---|
 | `sensor.<paal>_beschikbaarheid` | De hoofdsensor: "1 van de 2 vrij", met attributen `vrije_plekken` en `totale_plekken`. Heet gewoon zoals de paal (zie hieronder). Bij nieuw toegevoegde palen is het entity ID `sensor.<paal>` |
-| `sensor.<paal>_prijs` | Prijs per kWh incl. btw |
+| `sensor.<paal>_prijs` | Prijs per kWh incl. btw die nú geldt (dag- en nachttarieven worden elke minuut bijgewerkt). Attributen: `starttarief`, `blokkeertarief` en `verschilt_per_socket` |
+| `sensor.<paal>_starttarief` | Vast bedrag per sessie. Bestaat alleen als de paal er een heeft |
+| `sensor.<paal>_blokkeertarief` | Prijs per uur zodra het blokkeertarief gaat tellen, met attributen als `gratis_minuten` en `tijden`. Bestaat alleen als de paal er een heeft |
 | `sensor.<paal>_socket_<n>` | Status per socket (Vrij, Bezet, Buiten gebruik, …) |
 | `sensor.<paal>_socket_<n>_max_vermogen` | Maximaal vermogen per socket in kW |
 | `sensor.<paal>_aanbieder` | Aanbieder (diagnostisch) |
@@ -182,6 +185,7 @@ En dat gaat het een keer, want: onofficiële API.
 - **Onofficiële API.** Zie hierboven: als Road.io iets verandert, ligt dit plat tot iemand het fixt. Die iemand is waarschijnlijk een AI.
 - **Eén keer per minuut.** De status wordt elke minuut opgehaald. Een melding kan dus tot een minuut na het vrijkomen binnenkomen. Vaker vragen kan, maar dan is de kans groter dat Road.io ons eruit gooit.
 - **Geen sleutels of accounts.** De kaart-API heeft geen login nodig; er staan nergens wachtwoorden of API keys in deze repo.
+- **Tarieven.** De prijzen komen uit de data van Road.io, dezelfde als op de kaart van E-flux. Wat je uiteindelijk écht betaalt via je laadpas kan afwijken; dat kunnen we hier niet zien. Heeft een paal per socket een ander tarief, dan toont de integratie dat van de eerste socket (en staat `verschilt_per_socket` op `true`).
 - **Wat er naar Road.io gaat.** Elke minuut alleen de Location ID's van je palen. Tijdens het zoeken bij het toevoegen ook een vak rond de plek die je kiest, standaard je thuislocatie, net als wanneer je over hun kaart scrollt.
 - **Wat er naar OpenStreetMap gaat.** Alleen als je bij het toevoegen een adres typt: dat adres, één keer, om het op de kaart te zetten. Je thuislocatie staat al op de kaart, dus die hoef je nergens te typen.
 
