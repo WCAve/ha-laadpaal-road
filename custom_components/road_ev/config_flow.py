@@ -215,6 +215,8 @@ class RoadConfigFlow(ConfigFlow, domain=DOMAIN):
             description_placeholders={
                 "max_radius": str(SEARCH_RADIUS_MAX),
                 "place": self._place or "",
+                # Links mogen niet in de vertaalbestanden staan (hassfest).
+                "osm": "[© OpenStreetMap](https://www.openstreetmap.org/copyright)",
             },
         )
 
