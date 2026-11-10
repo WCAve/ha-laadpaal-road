@@ -50,4 +50,5 @@ class RoadTestNotificationButton(RoadEntity, ButtonEntity):
             f"Zo ziet een melding eruit. Nu: {message}.",
             stop_button=False,
             raise_on_error=True,
+            car=True,
         )

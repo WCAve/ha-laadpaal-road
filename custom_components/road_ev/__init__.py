@@ -13,12 +13,14 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.loader import async_get_integration
 
 from .api import RoadApiClient
 from .const import CARD_URL, CONF_LOCATION_ID, DOMAIN
 from .coordinator import RoadDataUpdateCoordinator, location_gone_issue_id
+from .price_watch import RoadPriceWatcher, storage_key
 from .watcher import RoadWatcher
 
 PLATFORMS: list[Platform] = [
@@ -60,6 +62,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: RoadConfigEntry) -> bool
 
     watcher = RoadWatcher(hass, entry, coordinator)
     watcher.async_start()
+    await RoadPriceWatcher(hass, entry, coordinator, watcher).async_start()
 
     entry.runtime_data = RoadData(coordinator=coordinator, watcher=watcher)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -72,8 +75,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: RoadConfigEntry) -> boo
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: RoadConfigEntry) -> None:
-    """Laadpaal verwijderd: ruim zijn reparatiemelding op."""
+    """Laadpaal verwijderd: ruim zijn reparatiemelding en bewaard tarief op."""
     ir.async_delete_issue(hass, DOMAIN, location_gone_issue_id(entry.entry_id))
+    await Store(hass, 1, storage_key(entry.entry_id)).async_remove()
 
 
 async def _async_register_card(hass: HomeAssistant) -> None:

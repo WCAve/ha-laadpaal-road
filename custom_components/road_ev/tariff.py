@@ -17,7 +17,7 @@ en Qwello (kWh + €0,30/u vanaf de start, tijdens en na het laden).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, time
+from datetime import UTC, date, datetime, time, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -76,6 +76,7 @@ class TariffNow:
     energy: float | None  # per kWh incl. btw
     start_fee: float  # per sessie incl. btw (0 = geen)
     blocking_fee: BlockingFee | None
+    time_fee_at_start: float = 0.0  # per uur laden vanaf de start (TIME), incl. btw
 
 
 def incl_vat(component: dict[str, Any]) -> float:
@@ -141,10 +142,12 @@ def evaluate(data: dict[str, Any] | None, now: datetime | None = None) -> Tariff
     current = components_at(tariff, when)
     energy = current.get(ENERGY)
     flat = current.get(FLAT)
+    time_fee = current.get(TIME)
     return TariffNow(
         energy=round(incl_vat(energy), 4) if energy else None,
         start_fee=round(incl_vat(flat), 4) if flat else 0.0,
         blocking_fee=blocking_fee(tariff),
+        time_fee_at_start=round(incl_vat(time_fee), 4) if time_fee else 0.0,
     )
 
 
@@ -180,7 +183,44 @@ def blocking_fee(tariff: dict[str, Any] | None) -> BlockingFee | None:
     return None
 
 
+def describe(
+    data: dict[str, Any] | None,
+    tariff: dict[str, Any] | None,
+    now: datetime | None = None,
+) -> dict[str, str | None]:
+    """Leesbare samenvatting van een tarief, om wijzigingen te melden.
+
+    Kijkt een week vooruit (per uur), zodat dag/nacht-prijzen als bereik
+    verschijnen ("€0,55–€0,62/kWh") en een wissel tussen dag en nacht dus
+    geen "wijziging" is. Afgerond op centen.
+    """
+    start = local_now(data, now)
+    energies: set[float] = set()
+    flats: set[float] = set()
+    for hour in range(7 * 24):
+        found = components_at(tariff, start + timedelta(hours=hour))
+        if ENERGY in found:
+            energies.add(round(incl_vat(found[ENERGY]), 2))
+        if FLAT in found and incl_vat(found[FLAT]) > 0:
+            flats.add(round(incl_vat(found[FLAT]), 2))
+    fee = blocking_fee(tariff)
+    return {
+        "prijs": _range(energies, "/kWh"),
+        "starttarief": _range(flats, ""),
+        "blokkeertarief": fee.text if fee else None,
+    }
+
+
 # ----------------------------------------------------------------- helpers
+
+
+def _range(values: set[float], unit: str) -> str | None:
+    if not values:
+        return None
+    low, high = min(values), max(values)
+    if low == high:
+        return f"{_euro(low)}{unit}"
+    return f"{_euro(low)}–{_euro(high)}{unit}"
 
 
 def _matches(r: dict[str, Any], when: datetime, duration_s: float, kwh: float) -> bool:

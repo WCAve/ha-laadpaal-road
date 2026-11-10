@@ -10,11 +10,13 @@
  *   show_distance: true
  *   show_group_button: true       # "Alle palen" bel in de kop
  *   show_stats: true              # knop voor "meestal vrij" per paal
- *   sort: distance | name
+ *   estimate_kwh: 20              # kostenschatting voor zoveel kWh (0 = uit)
+ *   car_kw: 11                    # laadvermogen van je auto (voor tijdtarieven)
+ *   sort: distance | price | name
  */
 
 const DOMAIN = "road_ev";
-const CARD_VERSION = "2.8.0";
+const CARD_VERSION = "2.9.0";
 
 const DEFAULTS = {
   title: "Laadpalen",
@@ -23,6 +25,8 @@ const DEFAULTS = {
   show_distance: true,
   show_group_button: true,
   show_stats: true,
+  estimate_kwh: 20,
+  car_kw: 11,
   sort: "distance",
 };
 
@@ -74,6 +78,16 @@ const formatDistance = (m) =>
   m >= 1000 ? `${(m / 1000).toFixed(1).replace(".", ",")} km` : `${Math.round(m)} m`;
 
 const formatPrice = (value) => `€${Number(value).toFixed(2).replace(".", ",")}/kWh`;
+const formatEuro = (value) => `€${Number(value).toFixed(2).replace(".", ",")}`;
+
+/** Geschatte kosten voor `kwh` kWh: energie + starttarief + eventueel tijdtarief
+ *  vanaf de start, bij het laagste van paal- en autovermogen. */
+function estimateCost({ price, startFee, timeFee, maxKw }, kwh, carKw) {
+  if (price == null || !(kwh > 0)) return null;
+  const kw = Math.min(maxKw > 0 ? maxKw : carKw, carKw > 0 ? carKw : 11);
+  const hours = kw > 0 ? kwh / kw : 0;
+  return price * kwh + (startFee || 0) + (timeFee || 0) * hours;
+}
 
 function formatRemaining(iso) {
   if (!iso) return "";
@@ -201,6 +215,8 @@ class RoadEvCard extends HTMLElement {
         statusText: unavailable ? "Niet bereikbaar" : avail.state,
         price: price && !isUnavailable(price) ? Number(price.state) : null,
         startFee: Number(price?.attributes?.starttarief || 0),
+        timeFee: Number(price?.attributes?.tijdtarief_bij_start || 0),
+        maxKw: Number(price?.attributes?.max_vermogen_kw || 0),
         blockingFee: price?.attributes?.blokkeertarief || null,
         distance,
         wishOn: wish?.state === "on",
@@ -208,9 +224,20 @@ class RoadEvCard extends HTMLElement {
       };
     });
 
+    for (const r of rows) {
+      r.estimate = r.unavailable ? null : estimateCost(r, Number(cfg.estimate_kwh), Number(cfg.car_kw));
+    }
+
     rows.sort((a, b) => {
       if (cfg.sort === "distance" && a.distance != null && b.distance != null) {
         return a.distance - b.distance;
+      }
+      if (cfg.sort === "price") {
+        // Goedkoopste eerst (op schatting als die aan staat); zonder prijs achteraan.
+        const pa = a.estimate ?? a.price;
+        const pb = b.estimate ?? b.price;
+        if (pa != null && pb != null && pa !== pb) return pa - pb;
+        if ((pa == null) !== (pb == null)) return pa == null ? 1 : -1;
       }
       return a.name.localeCompare(b.name, "nl");
     });
@@ -305,6 +332,9 @@ class RoadEvCard extends HTMLElement {
         <div class="info">
           <div class="name">${escapeHtml(r.name)}</div>
           <div class="details">${details.join('<span class="sep">·</span>')}</div>
+          ${cfg.show_price && r.estimate != null
+            ? `<div class="estimate-line" title="Schatting: ${escapeHtml(cfg.estimate_kwh)} kWh × kWh-prijs${r.startFee > 0 ? " + starttarief" : ""}${r.timeFee > 0 ? " + tijdtarief tijdens het laden" : ""}">≈ ${escapeHtml(formatEuro(r.estimate))} voor ${escapeHtml(cfg.estimate_kwh)} kWh</div>`
+            : ""}
           ${cfg.show_price && r.blockingFee
             ? `<div class="fee-line" title="Blokkeertarief: vanaf de start van je sessie"><ha-icon icon="mdi:timer-alert-outline"></ha-icon>${escapeHtml(r.blockingFee)}</div>`
             : ""}
@@ -492,6 +522,7 @@ const STYLE = `
   .free .status { color: var(--success-color, #43a047); font-weight: 500; }
   .busy .status { color: var(--error-color, #db4437); font-weight: 500; }
   .sep { margin: 0 6px; }
+  .estimate-line { margin-top: 2px; font-size: 0.85em; color: var(--secondary-text-color); }
   .fee-line { margin-top: 2px; font-size: 0.85em; color: var(--warning-color, #ffa600); display: flex; align-items: center; gap: 4px; }
   .fee-line ha-icon { --mdc-icon-size: 16px; }
   .wish-line { margin-top: 2px; font-size: 0.85em; color: var(--primary-color); display: flex; align-items: center; gap: 4px; }
@@ -516,12 +547,21 @@ const EDITOR_SCHEMA = [
     ],
   },
   {
+    type: "grid",
+    name: "",
+    schema: [
+      { name: "estimate_kwh", selector: { number: { min: 0, max: 150, step: 5, mode: "box", unit_of_measurement: "kWh" } } },
+      { name: "car_kw", selector: { number: { min: 1, max: 350, step: 0.1, mode: "box", unit_of_measurement: "kW" } } },
+    ],
+  },
+  {
     name: "sort",
     selector: {
       select: {
         mode: "dropdown",
         options: [
           { value: "distance", label: "Afstand tot thuis" },
+          { value: "price", label: "Prijs (goedkoopste eerst)" },
           { value: "name", label: "Naam" },
         ],
       },
@@ -536,6 +576,8 @@ const EDITOR_LABELS = {
   show_distance: "Afstand tonen",
   show_group_button: "Knop \"Eerste vrije\" tonen",
   show_stats: "Statistiek-knop tonen",
+  estimate_kwh: "Kostenschatting voor (0 = uit)",
+  car_kw: "Laadvermogen van je auto",
   sort: "Sorteren op",
 };
 
