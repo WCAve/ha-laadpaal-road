@@ -1,4 +1,4 @@
-"""Constanten voor de Road.io (E-flux) integratie."""
+"""Constanten voor de EV Location Radar integratie."""
 
 from __future__ import annotations
 
@@ -16,7 +16,6 @@ SCAN_INTERVAL: Final = timedelta(seconds=60)
 API_BASE_URL: Final = "https://api.road.io/1/map/"
 API_TIMEOUT: Final = 10
 
-MANUFACTURER: Final = "Road.io"
 
 # Laadpaal zoeken bij het toevoegen
 CONF_LOCATION: Final = "location"
@@ -68,7 +67,7 @@ ARRIVAL_RADIUS_M: Final = 200
 # laadwensen die binnen deze tijd daarna worden aangezet als "al geregeld".
 GROUP_ARM_GRACE: Final = timedelta(seconds=10)
 
-# Reparatiemeldingen: pas melden als Road.io zo lang onbereikbaar is.
+# Reparatiemeldingen: pas melden als de API zo lang onbereikbaar is.
 UNREACHABLE_REPAIR_AFTER: Final = timedelta(minutes=30)
 
 # Android meldingskanaal voor laadwens-meldingen (ook gebruikt voor Android Auto).

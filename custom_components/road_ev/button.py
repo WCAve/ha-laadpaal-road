@@ -39,7 +39,7 @@ class RoadTestNotificationButton(RoadEntity, ButtonEntity):
 
     @property
     def available(self) -> bool:
-        """Ook testen als Road.io even plat ligt."""
+        """Ook testen als de API even plat ligt."""
         return True
 
     async def async_press(self) -> None:

@@ -1,4 +1,4 @@
-"""Config flow en opties (Configureren) voor Road.io."""
+"""Config flow en opties (Configureren)."""
 
 from __future__ import annotations
 

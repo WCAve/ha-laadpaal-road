@@ -55,7 +55,7 @@ class RoadChargeWishSwitch(RoadEntity, SwitchEntity, RestoreEntity):
 
     @property
     def available(self) -> bool:
-        """De laadwens is altijd te bedienen, ook als Road.io even plat ligt."""
+        """De laadwens is altijd te bedienen, ook als de API even plat ligt."""
         return True
 
     @property
@@ -84,4 +84,4 @@ class RoadChargeWishSwitch(RoadEntity, SwitchEntity, RestoreEntity):
 
     @callback
     def _handle_coordinator_update(self) -> None:
-        """Nieuwe Road.io data verandert niets aan de switch zelf."""
+        """Nieuwe data verandert niets aan de switch zelf."""

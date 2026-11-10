@@ -1,6 +1,6 @@
 {
   "domain": "road_ev",
-  "name": "Road.io (E-flux) EV Charger",
+  "name": "EV Location Radar",
   "codeowners": [
     "@WCAve"
   ],

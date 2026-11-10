@@ -1,4 +1,4 @@
-"""Hulpfuncties om de ruwe Road.io locatie-data uit te lezen."""
+"""Hulpfuncties om de ruwe locatie-data van de API uit te lezen."""
 
 from __future__ import annotations
 

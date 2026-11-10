@@ -1,4 +1,4 @@
-"""DataUpdateCoordinator voor Road.io."""
+"""DataUpdateCoordinator: haalt de laadpaaldata op."""
 
 from __future__ import annotations
 
@@ -76,7 +76,7 @@ class RoadDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 ir.IssueSeverity.ERROR,
                 {"error": str(err)},
             )
-            raise UpdateFailed(f"Onverwacht antwoord van Road.io: {err}") from err
+            raise UpdateFailed(f"Onverwacht antwoord van de API: {err}") from err
         except RoadApiError as err:
             now = dt_util.utcnow()
             if self.failing_since is None:

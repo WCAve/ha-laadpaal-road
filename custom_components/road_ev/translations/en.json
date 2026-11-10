@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Add a Road.io charger",
+        "title": "Add a charger",
         "description": "How do you want to find the charger?",
         "menu_options": {
           "search": "Search on the map",
@@ -49,10 +49,10 @@
       }
     },
     "error": {
-      "cannot_connect": "Could not reach the Road.io API. Try again later.",
-      "invalid_location": "Road.io does not know this Location ID.",
+      "cannot_connect": "Could not reach the charger API. Try again later.",
+      "invalid_location": "This Location ID is unknown.",
       "unknown": "Unexpected error, check the Home Assistant logs.",
-      "no_chargers": "No Road.io chargers found in this area. Try a larger circle or another spot.",
+      "no_chargers": "No chargers found in this area. Try a larger circle or another spot.",
       "all_added": "All chargers in this area have already been added.",
       "geocode_failed": "Couldn't look up the address at OpenStreetMap. Try again later or move the pin yourself.",
       "address_not_found": "Address not found. Try writing it differently, for example with the town name."
@@ -92,16 +92,16 @@
   },
   "issues": {
     "api_unreachable": {
-      "title": "Road.io can't be reached",
-      "description": "Road.io hasn't responded since {since}. The charger sensors show as unavailable until it's back. If it lasts much longer, Road.io may have changed or blocked its map API. This notice disappears by itself once it works again."
+      "title": "The charger API can't be reached",
+      "description": "The charger API hasn't responded since {since}. The charger sensors show as unavailable until it's back. If it lasts much longer, the unofficial API may have changed or been blocked. This notice disappears by itself once it works again."
     },
     "api_changed": {
-      "title": "Road.io changed its API",
-      "description": "Road.io responded, but not in the format this integration knows ({error}). The integration uses Road.io's unofficial map API, which apparently changed. Check for an update of the integration. This notice disappears by itself once it works again."
+      "title": "The charger API has changed",
+      "description": "The charger API responded, but not in the format this integration knows ({error}). The integration uses an unofficial map API, which apparently changed. Check for an update of the integration. This notice disappears by itself once it works again."
     },
     "location_gone": {
       "title": "Charger {name} no longer exists",
-      "description": "Road.io doesn't know Location ID {location_id} ({name}) anymore. The charger may have been removed or moved to a new ID. Remove this charger and add it again via the map search."
+      "description": "Location ID {location_id} ({name}) no longer exists. The charger may have been removed or moved to a new ID. Remove this charger and add it again via the map search."
     }
   }
 }

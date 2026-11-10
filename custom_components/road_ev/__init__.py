@@ -1,4 +1,4 @@
-"""Initialisatie van de Road.io (E-flux) integratie."""
+"""Initialisatie van de EV Location Radar integratie."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Tarieven van Road.io uitlezen (OCPI-achtig formaat).
+"""Tarieven uit de API uitlezen (OCPI-achtig formaat).
 
 Een tarief bestaat uit "elements", elk met "priceComponents" en optionele
 "restrictions". Per soort component (ENERGY, FLAT, TIME, PARKING_TIME) geldt
