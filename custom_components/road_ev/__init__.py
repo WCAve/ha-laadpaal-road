@@ -2,18 +2,49 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from pathlib import Path
+
+from homeassistant.components.frontend import add_extra_js_url
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.typing import ConfigType
+from homeassistant.loader import async_get_integration
 
 from .api import RoadApiClient
-from .const import CONF_LOCATION_ID, DOMAIN
+from .const import CARD_URL, CONF_LOCATION_ID, DOMAIN
 from .coordinator import RoadDataUpdateCoordinator
+from .watcher import RoadWatcher
 
-PLATFORMS: list[Platform] = [Platform.SENSOR]
+PLATFORMS: list[Platform] = [
+    Platform.BINARY_SENSOR,
+    Platform.BUTTON,
+    Platform.SENSOR,
+    Platform.SWITCH,
+]
 
-type RoadConfigEntry = ConfigEntry[RoadDataUpdateCoordinator]
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
+
+@dataclass
+class RoadData:
+    """Alles wat bij één laadpaal (config entry) hoort."""
+
+    coordinator: RoadDataUpdateCoordinator
+    watcher: RoadWatcher
+
+
+type RoadConfigEntry = ConfigEntry[RoadData]
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Registreer de Lovelace kaart (één keer per Home Assistant start)."""
+    await _async_register_card(hass)
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: RoadConfigEntry) -> bool:
@@ -26,7 +57,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: RoadConfigEntry) -> bool
     # Haal direct de eerste dataset op; mislukt dit dan probeert HA het later opnieuw.
     await coordinator.async_config_entry_first_refresh()
 
-    entry.runtime_data = coordinator
+    watcher = RoadWatcher(hass, entry, coordinator)
+    watcher.async_start()
+
+    entry.runtime_data = RoadData(coordinator=coordinator, watcher=watcher)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
@@ -34,6 +68,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: RoadConfigEntry) -> bool
 async def async_unload_entry(hass: HomeAssistant, entry: RoadConfigEntry) -> bool:
     """Verwijder de integratie correct uit het geheugen."""
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+
+async def _async_register_card(hass: HomeAssistant) -> None:
+    """Serveer road-ev-card.js en laad hem in de frontend."""
+    if hass.http is None:  # bv. tijdens tests zonder webserver
+        return
+
+    path = Path(__file__).parent / "frontend" / "road-ev-card.js"
+    await hass.http.async_register_static_paths(
+        [StaticPathConfig(CARD_URL, str(path), cache_headers=False)]
+    )
+    # Versie in de URL zodat browsers na een update de nieuwe kaart laden.
+    integration = await async_get_integration(hass, DOMAIN)
+    add_extra_js_url(hass, f"{CARD_URL}?v={integration.version}")
 
 
 def _async_backfill_unique_id(hass: HomeAssistant, entry: RoadConfigEntry) -> None:

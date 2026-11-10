@@ -103,3 +103,54 @@ template:
 
 ---
 
+
+## Stap 4: De kaart
+
+De integratie brengt zijn eigen dashboardkaart mee; je hoeft niets los te installeren. Na een update één keer de browser verversen (eventueel cache legen), daarna:
+
+1. Open een dashboard > **Bewerken** > **Kaart toevoegen**.
+2. Zoek naar **Road.io laadpalen**.
+
+De kaart toont al je laadpalen met status, prijs en afstand tot je thuislocatie, gesorteerd op afstand. Tik op een paal voor de details, of op de 🔔 om een laadwens aan te zetten. In de visuele editor kies je welke palen je wilt zien en of prijs en afstand getoond worden.
+
+In YAML:
+
+```yaml
+type: custom:road-ev-card
+title: Laadpalen        # leeg = geen titel
+devices: []             # leeg = alle Road.io laadpalen
+show_price: true
+show_distance: true
+sort: distance          # of: name
+```
+
+---
+
+## Stap 5: Laadwens (melding als er plek is)
+
+Zet de 🔔 aan bij een paal (op de kaart of met `switch.<paal>_laadwens`) en je krijgt een melding zodra er een socket vrij is. Geen automations nodig.
+
+**Instellen:** Instellingen > Apparaten & diensten > Road.io > **Configureren** bij een laadpaal.
+
+| Instelling | Standaard | Wat het doet |
+|---|---|---|
+| Meldingen sturen naar | – | Je telefoon(s) met de Home Assistant app, en/of de meldingen in Home Assistant zelf |
+| Laadwens uitzetten na de melding | aan | Eén melding per keer dat je de bel aanzet |
+| Melden als de paal weer bezet raakt | aan | Tot 30 minuten na een "vrij"-melding |
+| Persoon | – | Ben jij binnen 200 m als de paal bezet raakt, dan ben jij het: geen "weer bezet"-melding |
+| Laadwens automatisch uitzetten na | 0 (nooit) | Je krijgt dan een melding dat er geen plek vrijkwam |
+| Pas melden als hij minstens zo lang vrij is | 0 min | Tegen valse meldingen bij een korte wissel |
+
+Een nieuwe laadpaal neemt de instellingen van je vorige paal over. Met de knop **Testmelding** op het apparaat check je of alles werkt.
+
+**De melding** toont hoeveel sockets vrij zijn en de prijs, met de knoppen **Navigeer** (route in Maps) en **Stop** (bel uit). Is de paal al vrij als je de bel aanzet, dan krijg je meteen een melding. Een "weer bezet"-melding vervangt de eerdere melding op je telefoon.
+
+Goed om te weten: Road.io wordt elke minuut gecontroleerd, dus een melding kan tot een minuut na het vrijkomen binnenkomen.
+
+**Nieuwe entiteiten per laadpaal:**
+
+- `switch.<paal>_laadwens`: de bel; blijft bewaard na een herstart
+- `binary_sensor.<paal>_vrij`: aan als er minstens één socket vrij is
+- `button.<paal>_testmelding`: stuurt een testmelding
+
+---

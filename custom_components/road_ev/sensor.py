@@ -13,13 +13,12 @@ from typing import Any
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.const import EntityCategory, UnitOfPower
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import RoadConfigEntry
-from .const import DOMAIN, MANUFACTURER
 from .coordinator import RoadDataUpdateCoordinator
+from .data import evses, free_count, price_per_kwh
+from .entity import RoadEntity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -49,7 +48,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Maak de sensoren aan voor de Road.io lader."""
-    coordinator = entry.runtime_data
+    coordinator = entry.runtime_data.coordinator
 
     async_add_entities(
         [
@@ -70,7 +69,7 @@ async def async_setup_entry(
     @callback
     def _async_add_new_sockets() -> None:
         new_entities: list[SensorEntity] = []
-        for index in range(len(_evses(coordinator.data))):
+        for index in range(len(evses(coordinator.data))):
             if index in known_sockets:
                 continue
             known_sockets.add(index)
@@ -83,33 +82,8 @@ async def async_setup_entry(
     entry.async_on_unload(coordinator.async_add_listener(_async_add_new_sockets))
 
 
-def _evses(data: dict[str, Any] | None) -> list[dict[str, Any]]:
-    """Geef de lijst met sockets (EVSE's) terug, of een lege lijst."""
-    if not data:
-        return []
-    evses = data.get("evses")
-    return evses if isinstance(evses, list) else []
-
-
-class RoadBaseEntity(CoordinatorEntity[RoadDataUpdateCoordinator], SensorEntity):
-    """Basisklasse voor Road entiteiten."""
-
-    _attr_has_entity_name = True
-
-    def __init__(self, coordinator: RoadDataUpdateCoordinator) -> None:
-        """Koppel de entiteit aan het apparaat van deze locatie."""
-        super().__init__(coordinator)
-        self.location_id = coordinator.location_id
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, self.location_id)},
-            name=coordinator.config_entry.title,
-            manufacturer=MANUFACTURER,
-        )
-
-    @property
-    def evses(self) -> list[dict[str, Any]]:
-        """Sockets van de laatst opgehaalde data."""
-        return _evses(self.coordinator.data)
+class RoadBaseEntity(RoadEntity, SensorEntity):
+    """Basisklasse voor Road sensoren."""
 
 
 class RoadLocationPriceSensor(RoadBaseEntity):
@@ -118,6 +92,7 @@ class RoadLocationPriceSensor(RoadBaseEntity):
     # Geen SensorDeviceClass.MONETARY: die accepteert alleen een valuta als
     # eenheid (bv. "EUR"), niet "EUR/kWh", en gaf daarom een waarschuwing.
     _attr_name = "Prijs"
+    _attr_translation_key = "price"
     _attr_native_unit_of_measurement = "EUR/kWh"
     _attr_icon = "mdi:cash"
 
@@ -129,18 +104,15 @@ class RoadLocationPriceSensor(RoadBaseEntity):
     @property
     def native_value(self) -> float | None:
         """Prijs per kWh van het eerste tarief van de eerste socket."""
-        try:
-            evse = self.evses[0]
-            p = evse["connectors"][0]["tariff"]["elements"][0]["priceComponents"][0]
-            return round(p["price"] * (1 + (p.get("vat", 0) / 100)), 4)
-        except (KeyError, IndexError, TypeError):
-            return None
+        return price_per_kwh(self.coordinator.data)
 
 
 class RoadAvailabilitySensor(RoadBaseEntity):
     """Samenvattende sensor voor de beschikbaarheid van de hele paal."""
 
     _attr_name = "Beschikbaarheid"
+    # translation_key: hiermee vindt de kaart deze sensor terug.
+    _attr_translation_key = "availability"
     _attr_icon = "mdi:ev-plug-type2"
 
     def __init__(self, coordinator: RoadDataUpdateCoordinator) -> None:
@@ -149,9 +121,7 @@ class RoadAvailabilitySensor(RoadBaseEntity):
         self._attr_unique_id = f"road_{self.location_id}_availability"
 
     def _counts(self) -> tuple[int, int]:
-        evses = self.evses
-        free = sum(1 for evse in evses if evse.get("status") == "AVAILABLE")
-        return free, len(evses)
+        return free_count(self.coordinator.data), len(self.evses)
 
     @property
     def native_value(self) -> str:
@@ -260,6 +230,7 @@ class RoadCoordinatesSensor(RoadBaseEntity):
 
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_name = "Coördinaten"
+    _attr_translation_key = "coordinates"
 
     def __init__(self, coordinator: RoadDataUpdateCoordinator) -> None:
         """Initialiseer de coördinaten sensor."""

@@ -17,3 +17,33 @@ API_URL: Final = "https://api.road.io/1/map/locations"
 API_TIMEOUT: Final = 10
 
 MANUFACTURER: Final = "Road.io"
+
+# Opties (Configureren) voor de "Laadwens" meldingen
+CONF_NOTIFY_TARGETS: Final = "notify_targets"
+CONF_DISARM_AFTER_NOTIFY: Final = "disarm_after_notify"
+CONF_NOTIFY_WHEN_TAKEN: Final = "notify_when_taken"
+CONF_EXPIRE_HOURS: Final = "expire_hours"
+CONF_MIN_FREE_MINUTES: Final = "min_free_minutes"
+CONF_PERSON: Final = "person"
+
+DEFAULT_OPTIONS: Final[dict] = {
+    CONF_NOTIFY_TARGETS: [],
+    CONF_DISARM_AFTER_NOTIFY: True,
+    CONF_NOTIFY_WHEN_TAKEN: True,
+    CONF_EXPIRE_HOURS: 0,
+    CONF_MIN_FREE_MINUTES: 0,
+}
+
+# Speciaal meldingsdoel: de meldingen in Home Assistant zelf.
+TARGET_PERSISTENT: Final = "persistent_notification"
+
+# Hoe lang we na een "vrij"-melding blijven kijken of de paal weer bezet raakt.
+FOLLOW_UP_WINDOW: Final = timedelta(minutes=30)
+# Binnen deze afstand van de paal ga je ervan uit dat jij de paal bezet.
+ARRIVAL_RADIUS_M: Final = 200
+
+# mobile_app actie-id voor de "Stop" knop in een melding.
+ACTION_STOP_PREFIX: Final = "ROAD_EV_STOP_"
+
+# Frontend kaart
+CARD_URL: Final = f"/{DOMAIN}/road-ev-card.js"

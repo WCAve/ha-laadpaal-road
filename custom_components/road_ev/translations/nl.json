@@ -18,5 +18,28 @@
     "abort": {
       "already_configured": "Deze laadlocatie is al toegevoegd."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Laadwens meldingen",
+        "description": "Zet de bel (Laadwens) aan op de kaart of met de switch en je krijgt een melding zodra er bij deze paal een socket vrij is. Bij een nieuwe laadpaal worden de instellingen van je vorige paal overgenomen.",
+        "data": {
+          "notify_targets": "Meldingen sturen naar",
+          "disarm_after_notify": "Laadwens uitzetten na de melding",
+          "notify_when_taken": "Melden als de paal weer bezet raakt voordat je er bent",
+          "person": "Persoon (om te herkennen dat jij de paal zelf bezet)",
+          "expire_hours": "Laadwens automatisch uitzetten na",
+          "min_free_minutes": "Pas melden als hij minstens zo lang vrij is"
+        },
+        "data_description": {
+          "notify_targets": "Telefoons met de Home Assistant app, of de meldingen in Home Assistant zelf.",
+          "notify_when_taken": "Geldt tot 30 minuten na een 'vrij'-melding.",
+          "person": "Is deze persoon binnen 200 m als de paal bezet raakt, dan ben jij het: geen 'weer bezet'-melding en de laadwens gaat uit.",
+          "expire_hours": "0 = nooit.",
+          "min_free_minutes": "Voorkomt valse meldingen als een socket maar heel even vrij is. 0 = meteen melden."
+        }
+      }
+    }
   }
 }
