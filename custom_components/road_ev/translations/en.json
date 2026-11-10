@@ -11,8 +11,20 @@
       },
       "search": {
         "title": "Where do you want to charge?",
-        "description": "Move the pin to the place where you want to charge and drag the circle to set how far to search (up to {max_radius} m).",
+        "description": "Type an address or place and press Submit to move the map there, or move the pin yourself. Drag the circle to set how far to search (up to {max_radius} m). Addresses are looked up via [© OpenStreetMap](https://www.openstreetmap.org/copyright).",
         "data": {
+          "address": "Address or place (optional)",
+          "location": "Search area"
+        },
+        "data_description": {
+          "address": "Your home location is already on the map, no need to type it."
+        }
+      },
+      "search_found": {
+        "title": "Is this the right spot?",
+        "description": "📍 Found: **{place}**\n\nPress Submit to search for chargers around the pin. You can still move the pin, resize the circle or type another address. Address lookup via [© OpenStreetMap](https://www.openstreetmap.org/copyright).",
+        "data": {
+          "address": "Address or place (optional)",
           "location": "Search area"
         }
       },
@@ -41,7 +53,9 @@
       "invalid_location": "Road.io does not know this Location ID.",
       "unknown": "Unexpected error, check the Home Assistant logs.",
       "no_chargers": "No Road.io chargers found in this area. Try a larger circle or another spot.",
-      "all_added": "All chargers in this area have already been added."
+      "all_added": "All chargers in this area have already been added.",
+      "geocode_failed": "Couldn't look up the address at OpenStreetMap. Try again later or move the pin yourself.",
+      "address_not_found": "Address not found. Try writing it differently, for example with the town name."
     },
     "abort": {
       "already_configured": "This charging location has already been added."
