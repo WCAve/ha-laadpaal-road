@@ -10,7 +10,8 @@ weekdag, datum, sessieduur en geladen kWh. Vermogen en stroom kunnen we niet
 weten en tellen als "klopt".
 
 Getest met echte tarieven van Plugfuse (kWh + starttarief), Vattenfall
-(kWh vanaf een startdatum) en Allego (kWh, na 5 uur €3/u tussen 07 en 23 uur).
+(kWh vanaf een startdatum), Allego (kWh, na 5 uur €3/u tussen 07 en 23 uur)
+en Qwello (kWh + €0,30/u vanaf de start, tijdens en na het laden).
 """
 
 from __future__ import annotations
@@ -51,11 +52,15 @@ class BlockingFee:
 
     @property
     def text(self) -> str:
-        """Korte omschrijving, bv. "na 5 u €3,00/u (07:00–23:00)"."""
+        """Korte omschrijving, bv. "na 5 u €3,00/u (07:00–23:00)".
+
+        Telt het vanaf de eerste minuut: "€0,30/u vanaf de start".
+        """
         price = _euro(self.per_hour) + "/u"
-        text = (
-            f"na {_duration(self.free_minutes)} {price}" if self.free_minutes else price
-        )
+        if self.free_minutes:
+            text = f"na {_duration(self.free_minutes)} {price}"
+        else:
+            text = f"{price} vanaf de start"
         extras = []
         if self.window:
             extras.append(self.window)
