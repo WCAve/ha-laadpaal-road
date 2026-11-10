@@ -1,0 +1,22 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Road.io (E-flux) instellen",
+        "description": "Geef de laadpaal een naam en vul het Location ID in. Het ID vind je met de webtool uit de README.",
+        "data": {
+          "name": "Naam van de laadpaal",
+          "location_id": "Location ID"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Kan de Road.io API niet bereiken. Probeer het later opnieuw.",
+      "invalid_location": "Road.io kent dit Location ID niet.",
+      "unknown": "Onverwachte fout, kijk in de logs van Home Assistant."
+    },
+    "abort": {
+      "already_configured": "Deze laadlocatie is al toegevoegd."
+    }
+  }
+}

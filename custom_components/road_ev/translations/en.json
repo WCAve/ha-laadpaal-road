@@ -2,13 +2,21 @@
   "config": {
     "step": {
       "user": {
-        "title": "Road.io (E-flux) Setup",
-        "description": "Geef de laadpaal een naam en vul het Location ID in.",
+        "title": "Road.io (E-flux) setup",
+        "description": "Give the charger a name and enter its Location ID. You can find the ID with the web tool from the README.",
         "data": {
-          "name": "Naam van de laadpaal",
+          "name": "Charger name",
           "location_id": "Location ID"
         }
       }
+    },
+    "error": {
+      "cannot_connect": "Could not reach the Road.io API. Try again later.",
+      "invalid_location": "Road.io does not know this Location ID.",
+      "unknown": "Unexpected error, check the Home Assistant logs."
+    },
+    "abort": {
+      "already_configured": "This charging location has already been added."
     }
   }
 }

@@ -4,7 +4,9 @@
   "codeowners": ["@WCAve"],
   "config_flow": true,
   "documentation": "https://github.com/WCAve/ha-laadpaal-road",
-  "issue_tracker": "https://github.com/WCAve/ha-laadpaal-road/issues",
+  "integration_type": "device",
   "iot_class": "cloud_polling",
-  "version": "2.1.0"
+  "issue_tracker": "https://github.com/WCAve/ha-laadpaal-road/issues",
+  "requirements": [],
+  "version": "2.2.0"
 }

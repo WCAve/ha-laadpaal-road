@@ -1,4 +1,6 @@
 {
   "name": "Road.io (E-flux) EV Charger",
+  "homeassistant": "2025.1.0",
+  "country": ["NL"],
   "render_readme": true
 }
