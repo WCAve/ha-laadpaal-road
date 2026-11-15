@@ -325,6 +325,8 @@ class RoadFreeSocketsSensor(RoadBaseEntity):
         """Totaal aantal sockets, en de statistiek zonder eigen sessies."""
         attrs: dict[str, Any] = {"totale_plekken": len(self.evses)}
         own = getattr(self.coordinator.config_entry.runtime_data, "own_stats", None)
+        if own is not None:
+            attrs["statistiek_kans_vrij"] = own.chance_statistic_id
         if own is not None and own.session_entity:
             attrs["statistiek_zonder_mij"] = own.statistic_id
             attrs["statistiek_mijn_sessies"] = own.mine_statistic_id

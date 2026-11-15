@@ -10,13 +10,15 @@
  *   show_distance: true
  *   show_group_button: true       # "Alle palen" bel in de kop
  *   show_stats: true              # knop voor "meestal vrij" per paal
+ *   show_advice: true             # per paal: "kom vóór 17:00"
+ *   show_advice_summary: true     # bovenaan: beste kans vandaag over al je palen
  *   estimate_kwh: 20              # kostenschatting voor zoveel kWh (0 = uit)
  *   car_kw: 11                    # laadvermogen van je auto (voor tijdtarieven)
  *   sort: distance | price | name
  */
 
 const DOMAIN = "road_ev";
-const CARD_VERSION = "2.11.0";
+const CARD_VERSION = "2.12.0";
 
 const DEFAULTS = {
   title: "Laadpalen",
@@ -25,6 +27,8 @@ const DEFAULTS = {
   show_distance: true,
   show_group_button: true,
   show_stats: true,
+  show_advice: true,
+  show_advice_summary: true,
   estimate_kwh: 20,
   car_kw: 11,
   sort: "distance",
@@ -57,6 +61,88 @@ function buildHeatmap(points, threshold = 0.5) {
   const grid = sum.map((row, wd) => row.map((v, h) => (count[wd][h] ? v / count[wd][h] : null)));
   return { grid, count, over, days: days.size };
 }
+
+const GOOD = 0.7; // kans waarboven we "meestal plek" zeggen
+const BAD = 0.3; // kans waaronder we "meestal vol" zeggen
+
+/** Label voor een kans (0-1) op minstens één vrije socket. */
+function chanceLabel(p) {
+  if (p < BAD) return "meestal vol";
+  if (p < GOOD) return "soms plek";
+  return "meestal plek";
+}
+const pct = (p) => `${Math.round(p * 100)}%`;
+const hh = (h) => `${String(h).padStart(2, "0")}:00`;
+
+/** Advies voor de rest van vandaag op basis van de kans-heatmap. */
+function adviceFor(heat, now = new Date()) {
+  if (!heat || !heat.days) return null;
+  const wd = (now.getDay() + 6) % 7;
+  const nowH = now.getHours();
+  const vals = [];
+  for (let h = nowH; h < 24; h++) {
+    const p = heat.grid[wd][h];
+    if (p != null) vals.push([h, p, heat.count[wd][h]]);
+  }
+  if (!vals.length) return null;
+  const weeks = Math.min(...vals.map((v) => v[2]));
+  const first = vals[0];
+  const goodNow = first[0] === nowH && first[1] >= GOOD;
+  let text;
+  if (vals.every((v) => v[1] >= GOOD)) {
+    text = "Vandaag nog de hele dag meestal plek";
+  } else if (goodNow) {
+    const drop = vals.find((v) => v[1] < GOOD);
+    text = `Kom vóór ${hh(drop[0])}, daarna ${drop[1] < BAD ? "meestal vol" : "minder kans"}`;
+  } else {
+    const good = vals.find((v) => v[1] >= GOOD);
+    const nowPart = first[0] === nowH ? (first[1] < BAD ? "Nu meestal vol" : "Nu minder kans") : "Voorlopig minder kans";
+    if (good) {
+      text = `${nowPart}, vanaf ${hh(good[0])} meestal plek`;
+    } else {
+      const best = vals.reduce((a, b) => (b[1] > a[1] ? b : a));
+      text = `Vandaag weinig kans, beste rond ${hh(best[0])} (${pct(best[1])})`;
+    }
+  }
+  return { text, weeks };
+}
+
+/** Bovenaan: welke paal wanneer, voor de rest van vandaag. */
+function adviceSummary(rows, now = new Date()) {
+  const wd = (now.getDay() + 6) % 7;
+  const usable = rows.filter((r) => r.chanceHeat && r.chanceHeat.days);
+  if (usable.length < 2) return null;
+  const p = (r, h) => r.chanceHeat.grid[wd][h];
+  const runEnd = (r, h) => { let e = h; while (e < 24 && p(r, e) != null && p(r, e) >= GOOD) e++; return e; };
+  const parts = [];
+  let t = now.getHours();
+  while (t < 24 && parts.length < 3) {
+    const goodNow = usable.filter((r) => p(r, t) != null && p(r, t) >= GOOD);
+    if (goodNow.length) {
+      const best = goodNow.reduce((a, b) => (runEnd(b, t) > runEnd(a, t) ? b : a));
+      const end = runEnd(best, t);
+      parts.push(end >= 24 ? `${best.name} de rest van de dag` : `${best.name} tot ${hh(end)}`);
+      t = end;
+      continue;
+    }
+    // Nu nergens goed: wie is als eerste weer goed?
+    let next = null;
+    for (const r of usable) {
+      for (let h = t + 1; h < 24; h++) {
+        if (p(r, h) != null && p(r, h) >= GOOD) { if (!next || h < next.h) next = { r, h }; break; }
+      }
+    }
+    if (!next) break;
+    parts.push(`vanaf ${hh(next.h)} ${next.r.name}`);
+    t = runEnd(next.r, next.h);
+    if (t < 24) parts[parts.length - 1] += ` tot ${hh(t)}`;
+  }
+  const weeks = Math.min(...usable.map((r) => Math.max(...r.chanceHeat.count.flat())));
+  if (!parts.length) return { text: "Vandaag weinig kans op plek bij je laadpalen", weeks };
+  return { text: `Beste kans vandaag: ${parts.join(", daarna ")}`, weeks };
+}
+
+const weeksNote = (w) => (w > 0 && w < 3 ? ` <span class="muted">(op basis van ${w} ${w === 1 ? "week" : "weken"})</span>` : "");
 
 /** "meestal vol" / "soms plek" / "meestal plek", gelijk aan de kleuren. */
 function freeLabel(mean) {
@@ -240,6 +326,7 @@ class RoadEvCard extends HTMLElement {
         statsId: (c.free_sockets && hass.states[c.free_sockets]?.attributes?.statistiek_zonder_mij) || c.free_sockets,
         statsWithoutMe: Boolean(c.free_sockets && hass.states[c.free_sockets]?.attributes?.statistiek_zonder_mij),
         mineStatsId: (c.free_sockets && hass.states[c.free_sockets]?.attributes?.statistiek_mijn_sessies) || null,
+        chanceStatsId: (c.free_sockets && hass.states[c.free_sockets]?.attributes?.statistiek_kans_vrij) || null,
         startFee: Number(price?.attributes?.starttarief || 0),
         timeFee: Number(price?.attributes?.tijdtarief_bij_start || 0),
         maxKw: Number(price?.attributes?.max_vermogen_kw || 0),
@@ -273,6 +360,15 @@ class RoadEvCard extends HTMLElement {
   _render() {
     if (!this._config || !this._hass) return;
     const rows = this._collect();
+    const wantAdvice = this._config.show_advice || this._config.show_advice_summary;
+    for (const r of rows) {
+      const entry = r.chanceStatsId ? this._stats[r.chanceStatsId] : null;
+      r.chanceHeat = entry && entry.status === "ok" ? entry.heatmap : null;
+      if (wantAdvice && r.chanceStatsId && !entry) {
+        const id = r.chanceStatsId;
+        queueMicrotask(() => this._loadStats(id)); // pas na het tekenen laden
+      }
+    }
     const key = JSON.stringify([this._config, rows, [...this._expanded], this._statsVersion || 0, this._mode, this._selected]);
     if (key === this._lastKey) return;
     this._lastKey = key;
@@ -312,10 +408,16 @@ class RoadEvCard extends HTMLElement {
          </div>`
       : "";
 
+    const summaryAdvice = cfg.show_advice_summary ? adviceSummary(rows) : null;
+    const summaryHtml = summaryAdvice
+      ? `<div class="advice-summary">💡 ${escapeHtml(summaryAdvice.text)}.${weeksNote(summaryAdvice.weeks)}</div>`
+      : "";
+
     this.shadowRoot.innerHTML = `
       <style>${STYLE}</style>
       <ha-card>
         ${header}
+        ${summaryHtml}
         <div class="list ${header ? "" : "no-title"}">${body}</div>
       </ha-card>`;
   }
@@ -358,6 +460,11 @@ class RoadEvCard extends HTMLElement {
         <div class="info">
           <div class="name">${escapeHtml(r.name)}</div>
           <div class="details">${details.join('<span class="sep">·</span>')}</div>
+          ${(() => {
+            if (!cfg.show_advice) return "";
+            const a = adviceFor(r.chanceHeat);
+            return a ? `<div class="advice-line">💡 ${escapeHtml(a.text)}${weeksNote(a.weeks)}</div>` : "";
+          })()}
           ${cfg.show_price && r.estimate != null
             ? `<div class="estimate-line" title="Schatting: ${escapeHtml(cfg.estimate_kwh)} kWh × kWh-prijs${r.startFee > 0 ? " + starttarief" : ""}${r.timeFee > 0 ? " + tijdtarief tijdens het laden" : ""}">≈ ${escapeHtml(formatEuro(r.estimate))} voor ${escapeHtml(cfg.estimate_kwh)} kWh</div>`
             : ""}
@@ -375,8 +482,11 @@ class RoadEvCard extends HTMLElement {
   _statsHtml(r) {
     const mode = r.mineStatsId && this._mode[r.deviceId] === "mine" ? "mine" : "free";
     const free = this._stats[r.statsId];
+    const chance = r.chanceStatsId ? this._stats[r.chanceStatsId] : null;
+    const chanceOk = chance && chance.status === "ok" && chance.heatmap.days ? chance.heatmap : null;
     const mine = r.mineStatsId ? this._stats[r.mineStatsId] : null;
-    const entry = mode === "mine" ? mine : free;
+    // In "Vrij" tonen we de kans op plek als die er is, anders het gemiddelde.
+    const entry = mode === "mine" ? mine : chanceOk ? chance : free;
 
     const toggle = r.mineStatsId
       ? `<div class="mode-toggle" role="tablist">
@@ -410,6 +520,7 @@ class RoadEvCard extends HTMLElement {
       if (mode === "mine") {
         return `sta je hier zelf in <b>${over[wd][h]} van de ${count[wd][h]}</b> ${count[wd][h] === 1 ? "week" : "weken"}`;
       }
+      if (chanceOk) return `<b>${chanceLabel(v)}</b> (${pct(v)} kans)`;
       return `<b>${freeLabel(v)}</b> (gemiddeld ${formatMean(v)} vrij)`;
     };
     let summary;
@@ -441,8 +552,12 @@ class RoadEvCard extends HTMLElement {
     if (sel) {
       const [wd, h] = sel;
       const fv = free?.heatmap?.grid?.[wd]?.[h];
+      const cv = chanceOk?.grid?.[wd]?.[h];
       const parts = [];
-      if (fv != null) {
+      if (cv != null) {
+        const n = chanceOk.count[wd][h];
+        parts.push(`${chanceLabel(cv)}: ${pct(cv)} kans op plek${fv != null ? `, gemiddeld ${formatMean(fv)} vrij` : ""} (${n} ${n === 1 ? "week" : "weken"})`);
+      } else if (fv != null) {
         const n = free.heatmap.count[wd][h];
         parts.push(`${freeLabel(fv)} (gemiddeld ${formatMean(fv)} vrij, ${n} ${n === 1 ? "week" : "weken"})`);
       }
@@ -457,6 +572,10 @@ class RoadEvCard extends HTMLElement {
       ? `<span class="swatch" style="background:${mineColor(0)}"></span>nooit
          <span class="swatch" style="background:${mineColor(0.5)}"></span>soms
          <span class="swatch" style="background:${mineColor(1)}"></span>meestal jij`
+      : chanceOk
+      ? `<span class="swatch" style="background:${heatColor(0)}"></span>vol
+         <span class="swatch" style="background:${heatColor(0.5)}"></span>50%
+         <span class="swatch" style="background:${heatColor(1)}"></span>altijd plek`
       : `<span class="swatch" style="background:${heatColor(0)}"></span>vol
          <span class="swatch" style="background:${heatColor(0.5)}"></span>soms
          <span class="swatch" style="background:${heatColor(1)}"></span>meestal plek`;
@@ -572,6 +691,7 @@ class RoadEvCard extends HTMLElement {
         this._render();
         this._loadStats(row.statsId);
         if (row.mineStatsId) this._loadStats(row.mineStatsId);
+        if (row.chanceStatsId) this._loadStats(row.chanceStatsId);
       }
       return;
     }
@@ -630,6 +750,8 @@ const STYLE = `
   .free .status { color: var(--success-color, #43a047); font-weight: 500; }
   .busy .status { color: var(--error-color, #db4437); font-weight: 500; }
   .sep { margin: 0 6px; }
+  .advice-line { margin-top: 2px; font-size: 0.85em; color: var(--primary-text-color); }
+  .advice-summary { margin: 0 16px 4px; padding: 8px 10px; border-radius: 10px; background: var(--secondary-background-color); font-size: 0.9em; }
   .estimate-line { margin-top: 2px; font-size: 0.85em; color: var(--secondary-text-color); }
   .fee-line { margin-top: 2px; font-size: 0.85em; color: var(--warning-color, #ffa600); display: flex; align-items: center; gap: 4px; }
   .fee-line ha-icon { --mdc-icon-size: 16px; }
@@ -652,6 +774,8 @@ const EDITOR_SCHEMA = [
       { name: "show_distance", selector: { boolean: {} } },
       { name: "show_group_button", selector: { boolean: {} } },
       { name: "show_stats", selector: { boolean: {} } },
+      { name: "show_advice", selector: { boolean: {} } },
+      { name: "show_advice_summary", selector: { boolean: {} } },
     ],
   },
   {
@@ -684,6 +808,8 @@ const EDITOR_LABELS = {
   show_distance: "Afstand tonen",
   show_group_button: "Knop \"Eerste vrije\" tonen",
   show_stats: "Statistiek-knop tonen",
+  show_advice: "Laadadvies per paal",
+  show_advice_summary: "Laadadvies bovenaan",
   estimate_kwh: "Kostenschatting voor (0 = uit)",
   car_kw: "Laadvermogen van je auto",
   sort: "Sorteren op",

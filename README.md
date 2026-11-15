@@ -58,6 +58,8 @@ De kaart toont al je palen met status, prijs en afstand tot thuis. Tik op een pa
 - **📊 per paal**: een weekoverzicht van wanneer die paal meestal vrij is, per uur, op basis van de afgelopen 4 weken. Home Assistant begint pas met tellen na deze update, dus de eerste dagen is dat overzicht nog wat leeg. Geduld.
   - **Zonder je eigen sessies**: sta je zelf vaak aan een paal, dan ziet die er in het overzicht voller uit dan hij is. Kies bij **Configureren** een sessie-sensor van een integratie die weet waar je laadt (bijvoorbeeld de "Charging status" sensor van Tap Electric, met het attribuut `outlet_name`). Je eigen sessies tellen dan niet meer mee, ook die uit het verleden, zo ver als de geschiedenis van Home Assistant teruggaat. Begin en eind komen van de status van de socket zelf, dus het maakt niet uit als die andere integratie pas laat bijwerkt. Home Assistant's eigen statistiek blijft onaangeroerd; dit komt in een aparte reeks.
   - **Vrij | Ikzelf**: met een sessie-sensor ingesteld kun je bovenin het weekoverzicht wisselen naar **Ikzelf**: dan zie je wanneer je er meestal zélf staat.
+  - **Kans op plek**: het weekoverzicht toont per uur de kans dat er minstens één socket vrij is (per minuut gemeten, zonder je eigen sessies als je een sessie-sensor hebt). Dat zegt meer dan "gemiddeld 0,8 vrij".
+- **Laadadvies**: per paal een regel voor de rest van vandaag, bijvoorbeeld "💡 Kom vóór 17:00, daarna meestal vol" of "💡 Nu meestal vol, vanaf 21:00 meestal plek". Bovenaan staat wat je over al je palen het beste kunt doen: "💡 Beste kans vandaag: Eksterweg tot 17:00, daarna Koperweg de rest van de dag". Met minder dan 3 weken gegevens staat erbij waar het op gebaseerd is, want één week is eerder een gok dan een voorspelling. Beide zijn in de kaarteditor uit te zetten.
   - **Tik op een vakje** voor uitleg, bijvoorbeeld "Woensdag 08:00–09:00: meestal vol (gemiddeld 0,1 vrij, 4 weken) · jij stond hier 0 van de 4 keer".
 
 Of in YAML, voor wie dat leuk vindt:
@@ -70,6 +72,8 @@ show_price: true
 show_distance: true
 show_group_button: true # de "Eerste vrije" knop
 show_stats: true        # de 📊 knop
+show_advice: true       # laadadvies per paal
+show_advice_summary: true # laadadvies bovenaan
 estimate_kwh: 20        # kostenschatting voor zoveel kWh (0 = uit)
 car_kw: 11              # hoe snel je auto (AC) laadt
 sort: distance          # of: price, name
