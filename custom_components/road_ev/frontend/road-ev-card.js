@@ -18,7 +18,7 @@
  */
 
 const DOMAIN = "road_ev";
-const CARD_VERSION = "2.12.0";
+const CARD_VERSION = "2.12.1";
 
 const DEFAULTS = {
   title: "Laadpalen",
