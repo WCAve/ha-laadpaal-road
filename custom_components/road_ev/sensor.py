@@ -327,6 +327,7 @@ class RoadFreeSocketsSensor(RoadBaseEntity):
         own = getattr(self.coordinator.config_entry.runtime_data, "own_stats", None)
         if own is not None and own.session_entity:
             attrs["statistiek_zonder_mij"] = own.statistic_id
+            attrs["statistiek_mijn_sessies"] = own.mine_statistic_id
         return attrs
 
 
