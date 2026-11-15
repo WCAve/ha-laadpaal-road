@@ -57,6 +57,8 @@ De kaart toont al je palen met status, prijs en afstand tot thuis. Tik op een pa
 - **Eerste vrije** (rechtsboven): zet de bel aan op alle palen op de kaart. De eerste die vrij komt stuurt een melding en de rest gaat uit. Voor als het je niet uitmaakt wáár je laadt, als het maar ergens kan.
 - **📊 per paal**: een weekoverzicht van wanneer die paal meestal vrij is, per uur, op basis van de afgelopen 4 weken. Home Assistant begint pas met tellen na deze update, dus de eerste dagen is dat overzicht nog wat leeg. Geduld.
   - **Zonder je eigen sessies**: sta je zelf vaak aan een paal, dan ziet die er in het overzicht voller uit dan hij is. Kies bij **Configureren** een sessie-sensor van een integratie die weet waar je laadt (bijvoorbeeld de "Charging status" sensor van Tap Electric, met het attribuut `outlet_name`). Je eigen sessies tellen dan niet meer mee, ook die uit het verleden, zo ver als de geschiedenis van Home Assistant teruggaat. Begin en eind komen van de status van de socket zelf, dus het maakt niet uit als die andere integratie pas laat bijwerkt. Home Assistant's eigen statistiek blijft onaangeroerd; dit komt in een aparte reeks.
+  - **Vrij | Ikzelf**: met een sessie-sensor ingesteld kun je bovenin het weekoverzicht wisselen naar **Ikzelf**: dan zie je wanneer je er meestal zélf staat.
+  - **Tik op een vakje** voor uitleg, bijvoorbeeld "Woensdag 08:00–09:00: meestal vol (gemiddeld 0,1 vrij, 4 weken) · jij stond hier 0 van de 4 keer".
 
 Of in YAML, voor wie dat leuk vindt:
 

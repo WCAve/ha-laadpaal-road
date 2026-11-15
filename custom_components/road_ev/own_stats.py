@@ -53,6 +53,11 @@ def statistic_id(entry_id: str) -> str:
     return f"{DOMAIN}:vrij_zonder_mij_{entry_id.lower()}"
 
 
+def mine_statistic_id(entry_id: str) -> str:
+    """Id van de statistiek "zelf aan het laden" (deel van het uur, 0-1)."""
+    return f"{DOMAIN}:mijn_sessies_{entry_id.lower()}"
+
+
 class RoadOwnSessionStats:
     """Houdt "vrij zonder mij" bij voor één laadpaal."""
 
@@ -69,6 +74,7 @@ class RoadOwnSessionStats:
         self.coordinator = coordinator
         self.watcher = watcher
         self.statistic_id = statistic_id(entry.entry_id)
+        self.mine_statistic_id = mine_statistic_id(entry.entry_id)
         self.last_run: datetime | None = None
         self.last_hours_written = 0
         self.last_hours_corrected = 0
@@ -176,6 +182,19 @@ class RoadOwnSessionStats:
             for r in rows
         ]
         async_add_external_statistics(self.hass, self._metadata(), data)
+        async_add_external_statistics(
+            self.hass,
+            self._metadata(
+                self.mine_statistic_id, f"{self.entry.title} zelf aan het laden"
+            ),
+            [
+                StatisticData(
+                    start=_start(r),
+                    mean=round(min(fractions.get(_start(r), 0.0), 1.0), 4),
+                )
+                for r in rows
+            ],
+        )
 
         self.last_run = now
         self.last_hours_written = len(data)
@@ -187,13 +206,15 @@ class RoadOwnSessionStats:
             len(fractions),
         )
 
-    def _metadata(self) -> StatisticMetaData:
+    def _metadata(
+        self, stat_id: str | None = None, name: str | None = None
+    ) -> StatisticMetaData:
         meta: dict[str, Any] = {
             "has_mean": True,
             "has_sum": False,
-            "name": f"{self.entry.title} vrij zonder mij",
+            "name": name or f"{self.entry.title} vrij zonder mij",
             "source": DOMAIN,
-            "statistic_id": self.statistic_id,
+            "statistic_id": stat_id or self.statistic_id,
             "unit_of_measurement": None,
             "unit_class": None,
         }
@@ -206,6 +227,7 @@ class RoadOwnSessionStats:
         return {
             "session_entity": self.session_entity,
             "statistic_id": self.statistic_id,
+            "mine_statistic_id": self.mine_statistic_id,
             "last_run": self.last_run.isoformat() if self.last_run else None,
             "hours_written": self.last_hours_written,
             "hours_corrected": self.last_hours_corrected,

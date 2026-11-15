@@ -16,7 +16,7 @@
  */
 
 const DOMAIN = "road_ev";
-const CARD_VERSION = "2.10.0";
+const CARD_VERSION = "2.11.0";
 
 const DEFAULTS = {
   title: "Laadpalen",
@@ -31,13 +31,17 @@ const DEFAULTS = {
 };
 
 const WEEKDAYS = ["Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo"];
+const WEEKDAYS_FULL = ["Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag", "Zondag"];
 const STATS_DAYS = 28;
 const STATS_MAX_AGE_MS = 30 * 60 * 1000;
 
-/** Uurstatistiek -> gemiddeld aantal vrije sockets per weekdag x uur. */
-function buildHeatmap(points) {
+/** Uurstatistiek -> gemiddelde per weekdag x uur. `over` telt per vakje de
+ *  weken waarin de waarde minstens `threshold` was (voor "jij stond hier
+ *  3 van de 4 keer"). */
+function buildHeatmap(points, threshold = 0.5) {
   const sum = Array.from({ length: 7 }, () => new Array(24).fill(0));
   const count = Array.from({ length: 7 }, () => new Array(24).fill(0));
+  const over = Array.from({ length: 7 }, () => new Array(24).fill(0));
   const days = new Set();
   for (const p of points || []) {
     if (p.mean == null) continue;
@@ -47,11 +51,27 @@ function buildHeatmap(points) {
     const h = start.getHours();
     sum[wd][h] += Number(p.mean);
     count[wd][h] += 1;
+    if (Number(p.mean) >= threshold) over[wd][h] += 1;
     days.add(start.toDateString());
   }
   const grid = sum.map((row, wd) => row.map((v, h) => (count[wd][h] ? v / count[wd][h] : null)));
-  return { grid, days: days.size };
+  return { grid, count, over, days: days.size };
 }
+
+/** "meestal vol" / "soms plek" / "meestal plek", gelijk aan de kleuren. */
+function freeLabel(mean) {
+  if (mean < 0.3) return "meestal vol";
+  if (mean < 1) return "soms plek";
+  return "meestal plek";
+}
+
+/** Kleur voor "zelf aan het laden": van bijna leeg naar de themakleur. */
+function mineColor(fraction) {
+  const f = Math.min(Math.max(fraction, 0), 1);
+  return `rgba(var(--rgb-primary-color, 3, 169, 244), ${(0.1 + 0.9 * f).toFixed(2)})`;
+}
+
+const hourRange = (h) => `${String(h).padStart(2, "0")}:00–${String((h + 1) % 24).padStart(2, "0")}:00`;
 
 /** Rood (0 vrij) via oranje naar groen (gemiddeld 1 of meer vrij). */
 function heatColor(mean) {
@@ -150,6 +170,8 @@ class RoadEvCard extends HTMLElement {
     super();
     this._expanded = new Set(); // device_id's met open statistiek
     this._stats = {}; // entity_id -> { status, fetchedAt, heatmap, error }
+    this._mode = {}; // device_id -> "free" | "mine"
+    this._selected = {}; // device_id -> [weekdag, uur]
   }
 
   setConfig(config) {
@@ -217,6 +239,7 @@ class RoadEvCard extends HTMLElement {
         // Statistiek zonder eigen laadsessies (als ingesteld), anders de gewone.
         statsId: (c.free_sockets && hass.states[c.free_sockets]?.attributes?.statistiek_zonder_mij) || c.free_sockets,
         statsWithoutMe: Boolean(c.free_sockets && hass.states[c.free_sockets]?.attributes?.statistiek_zonder_mij),
+        mineStatsId: (c.free_sockets && hass.states[c.free_sockets]?.attributes?.statistiek_mijn_sessies) || null,
         startFee: Number(price?.attributes?.starttarief || 0),
         timeFee: Number(price?.attributes?.tijdtarief_bij_start || 0),
         maxKw: Number(price?.attributes?.max_vermogen_kw || 0),
@@ -250,7 +273,7 @@ class RoadEvCard extends HTMLElement {
   _render() {
     if (!this._config || !this._hass) return;
     const rows = this._collect();
-    const key = JSON.stringify([this._config, rows, [...this._expanded], this._statsVersion || 0]);
+    const key = JSON.stringify([this._config, rows, [...this._expanded], this._statsVersion || 0, this._mode, this._selected]);
     if (key === this._lastKey) return;
     this._lastKey = key;
     this._rows = rows;
@@ -346,50 +369,108 @@ class RoadEvCard extends HTMLElement {
         ${statsButton}
         ${bell}
       </div>
-      ${expanded ? this._statsHtml(r) : ""}`;
+      ${expanded ? this._statsHtml({ ...r, index }) : ""}`;
   }
 
   _statsHtml(r) {
-    const entry = this._stats[r.statsId];
+    const mode = r.mineStatsId && this._mode[r.deviceId] === "mine" ? "mine" : "free";
+    const free = this._stats[r.statsId];
+    const mine = r.mineStatsId ? this._stats[r.mineStatsId] : null;
+    const entry = mode === "mine" ? mine : free;
+
+    const toggle = r.mineStatsId
+      ? `<div class="mode-toggle" role="tablist">
+           <button class="${mode === "free" ? "on" : ""}" data-action="mode" data-mode="free" data-index="${r.index}">Vrij</button>
+           <button class="${mode === "mine" ? "on" : ""}" data-action="mode" data-mode="mine" data-index="${r.index}">Ikzelf</button>
+         </div>`
+      : "";
+
     if (!entry || entry.status === "loading") {
-      return `<div class="stats muted">Statistiek laden…</div>`;
+      return `<div class="stats">${toggle}<div class="muted">Statistiek laden…</div></div>`;
     }
     if (entry.status === "error") {
-      return `<div class="stats muted">Kon de statistiek niet laden (${escapeHtml(entry.error)}).</div>`;
+      return `<div class="stats">${toggle}<div class="muted">Kon de statistiek niet laden (${escapeHtml(entry.error)}).</div></div>`;
     }
-    const { grid, days } = entry.heatmap;
+    const { grid, count, over, days } = entry.heatmap;
     if (!days) {
-      return `<div class="stats muted">Nog geen statistiek. Home Assistant houdt vanaf nu per uur bij hoeveel sockets vrij zijn; na een paar dagen zie je hier wanneer deze paal meestal vrij is.</div>`;
+      return `<div class="stats">${toggle}<div class="muted">Nog geen statistiek. Home Assistant houdt per uur bij hoeveel sockets vrij zijn; na een paar dagen zie je hier wanneer deze paal meestal vrij is.</div></div>`;
     }
+
     const now = new Date();
     const nowWd = (now.getDay() + 6) % 7;
     const nowH = now.getHours();
-    const nowMean = grid[nowWd][nowH];
-    const summary = nowMean == null
-      ? "Voor dit uur is nog geen statistiek."
-      : `Rond deze tijd meestal <b>${formatMean(nowMean)}</b> vrij.`;
+    const prev = new Date(now.getTime() - 3600 * 1000);
+    const prevWd = (prev.getDay() + 6) % 7;
+    const prevH = prev.getHours();
 
+    // Samenvatting: dit uur, of anders het vorige (afgeronde) uur.
+    const describe = (wd, h) => {
+      const v = grid[wd][h];
+      if (v == null) return null;
+      if (mode === "mine") {
+        return `sta je hier zelf in <b>${over[wd][h]} van de ${count[wd][h]}</b> ${count[wd][h] === 1 ? "week" : "weken"}`;
+      }
+      return `<b>${freeLabel(v)}</b> (gemiddeld ${formatMean(v)} vrij)`;
+    };
+    let summary;
+    if (describe(nowWd, nowH)) summary = `Rond deze tijd ${describe(nowWd, nowH)}.`;
+    else if (describe(prevWd, prevH)) summary = `Vorig uur (${hourRange(prevH)}): ${describe(prevWd, prevH)}.`;
+    else summary = "Voor dit tijdstip is nog geen statistiek.";
+
+    const color = (v) => (mode === "mine" ? mineColor(v) : heatColor(v));
+    const sel = this._selected[r.deviceId];
     const hours = Array.from({ length: 24 }, (_, h) =>
       `<div class="hh">${h % 6 === 0 ? h : ""}</div>`).join("");
     const rowsHtml = grid.map((cells, wd) => {
-      const tds = cells.map((mean, h) => {
-        const now = wd === nowWd && h === nowH ? " now" : "";
-        if (mean == null) return `<div class="cell empty-cell${now}" title="${WEEKDAYS[wd]} ${h}:00 · geen gegevens"></div>`;
-        return `<div class="cell${now}" style="background:${heatColor(mean)}"
-          title="${WEEKDAYS[wd]} ${h}:00 · gemiddeld ${formatMean(mean)} vrij"></div>`;
+      const tds = cells.map((v, h) => {
+        const cls = [
+          "cell",
+          v == null ? "empty-cell" : "",
+          wd === nowWd && h === nowH ? "now" : "",
+          sel && sel[0] === wd && sel[1] === h ? "sel" : "",
+        ].filter(Boolean).join(" ");
+        const style = v == null ? "" : ` style="background:${color(v)}"`;
+        return `<div class="${cls}"${style} data-action="cell" data-index="${r.index}" data-wd="${wd}" data-h="${h}"
+          role="button" aria-label="${WEEKDAYS_FULL[wd]} ${hourRange(h)}"></div>`;
       }).join("");
       return `<div class="wd">${WEEKDAYS[wd]}</div>${tds}`;
     }).join("");
 
+    // Uitleg bij het aangetikte vakje.
+    let detail = "";
+    if (sel) {
+      const [wd, h] = sel;
+      const fv = free?.heatmap?.grid?.[wd]?.[h];
+      const parts = [];
+      if (fv != null) {
+        const n = free.heatmap.count[wd][h];
+        parts.push(`${freeLabel(fv)} (gemiddeld ${formatMean(fv)} vrij, ${n} ${n === 1 ? "week" : "weken"})`);
+      }
+      const mh = mine?.heatmap;
+      if (mh && mh.grid[wd][h] != null) {
+        parts.push(`jij stond hier ${mh.over[wd][h]} van de ${mh.count[wd][h]} keer`);
+      }
+      detail = `<div class="cell-detail"><b>${WEEKDAYS_FULL[wd]} ${hourRange(h)}</b>: ${parts.length ? parts.join(" · ") : "nog geen gegevens"}</div>`;
+    }
+
+    const legend = mode === "mine"
+      ? `<span class="swatch" style="background:${mineColor(0)}"></span>nooit
+         <span class="swatch" style="background:${mineColor(0.5)}"></span>soms
+         <span class="swatch" style="background:${mineColor(1)}"></span>meestal jij`
+      : `<span class="swatch" style="background:${heatColor(0)}"></span>vol
+         <span class="swatch" style="background:${heatColor(0.5)}"></span>soms
+         <span class="swatch" style="background:${heatColor(1)}"></span>meestal plek`;
+    const basis = mode === "mine"
+      ? `Je eigen laadsessies, op basis van ${days} ${days === 1 ? "dag" : "dagen"}.`
+      : `Op basis van ${days} ${days === 1 ? "dag" : "dagen"}${r.statsWithoutMe ? ", zonder je eigen laadsessies" : ""}.`;
+
     return `
       <div class="stats">
-        <div class="stats-summary">${summary} <span class="muted">Op basis van ${days} ${days === 1 ? "dag" : "dagen"}${r.statsWithoutMe ? ", zonder je eigen laadsessies" : ""}.</span></div>
+        ${toggle}
+        <div class="stats-summary">${summary} <span class="muted">${basis}</span></div>
         <div class="heatmap"><div></div>${hours}${rowsHtml}</div>
-        <div class="legend muted">
-          <span class="swatch" style="background:${heatColor(0)}"></span>vol
-          <span class="swatch" style="background:${heatColor(0.5)}"></span>soms
-          <span class="swatch" style="background:${heatColor(1)}"></span>meestal plek
-        </div>
+        ${detail}
+        <div class="legend muted">${legend}<span class="tap-hint">Tik op een vakje voor details</span></div>
       </div>`;
   }
 
@@ -465,6 +546,22 @@ class RoadEvCard extends HTMLElement {
       });
       return;
     }
+    if (target.dataset.action === "mode") {
+      ev.stopPropagation();
+      this._mode = { ...this._mode, [row.deviceId]: target.dataset.mode };
+      this._render();
+      return;
+    }
+    if (target.dataset.action === "cell") {
+      ev.stopPropagation();
+      const wd = Number(target.dataset.wd);
+      const h = Number(target.dataset.h);
+      const cur = this._selected[row.deviceId];
+      const same = cur && cur[0] === wd && cur[1] === h;
+      this._selected = { ...this._selected, [row.deviceId]: same ? null : [wd, h] };
+      this._render();
+      return;
+    }
     if (target.dataset.action === "stats") {
       ev.stopPropagation();
       if (this._expanded.has(row.deviceId)) {
@@ -474,6 +571,7 @@ class RoadEvCard extends HTMLElement {
         this._expanded.add(row.deviceId);
         this._render();
         this._loadStats(row.statsId);
+        if (row.mineStatsId) this._loadStats(row.mineStatsId);
       }
       return;
     }
@@ -506,6 +604,13 @@ const STYLE = `
   .cell { height: 12px; border-radius: 2px; }
   .cell.empty-cell { background: var(--secondary-background-color); }
   .cell.now { outline: 2px solid var(--primary-text-color); outline-offset: -1px; }
+  .cell { cursor: pointer; }
+  .cell.sel { outline: 2px solid var(--primary-color); outline-offset: -1px; box-shadow: 0 0 0 2px var(--card-background-color, #fff); }
+  .cell-detail { margin-top: 6px; padding: 6px 8px; border-radius: 8px; background: var(--secondary-background-color); }
+  .tap-hint { margin-left: auto; font-size: 0.9em; }
+  .mode-toggle { display: inline-flex; border: 1px solid var(--divider-color, rgba(0,0,0,.12)); border-radius: 16px; overflow: hidden; margin-bottom: 6px; }
+  .mode-toggle button { border: none; background: none; padding: 4px 12px; font: inherit; font-size: 0.9em; cursor: pointer; color: var(--primary-text-color); }
+  .mode-toggle button.on { background: var(--primary-color); color: var(--text-primary-color, #fff); }
   .legend { display: flex; align-items: center; gap: 4px; margin-top: 6px; font-size: 0.85em; }
   .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-left: 6px; }
   .card-header { margin: 0; padding: 16px 16px 4px; font-size: var(--ha-card-header-font-size, 1.5em); font-weight: normal; color: var(--ha-card-header-color, var(--primary-text-color)); }
