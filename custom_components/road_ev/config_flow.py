@@ -35,6 +35,7 @@ from .const import (
     CONF_NOTIFY_TARGETS,
     CONF_NOTIFY_WHEN_TAKEN,
     CONF_PERSON,
+    CONF_SESSION_ENTITY,
     DEFAULT_NAME,
     DEFAULT_OPTIONS,
     DOMAIN,
@@ -316,8 +317,9 @@ class RoadOptionsFlow(OptionsFlow):
     ) -> ConfigFlowResult:
         """Toon en bewaar de meldingsinstellingen."""
         if user_input is not None:
-            if not user_input.get(CONF_PERSON):
-                user_input.pop(CONF_PERSON, None)
+            for key in (CONF_PERSON, CONF_SESSION_ENTITY):
+                if not user_input.get(key):
+                    user_input.pop(key, None)
             return self.async_create_entry(data=user_input)
 
         current = {
@@ -364,6 +366,9 @@ class RoadOptionsFlow(OptionsFlow):
                     )
                 ),
                 vol.Required(CONF_NOTIFY_PRICE_CHANGE): selector.BooleanSelector(),
+                vol.Optional(CONF_SESSION_ENTITY): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain="sensor")
+                ),
             }
         )
         return self.async_show_form(

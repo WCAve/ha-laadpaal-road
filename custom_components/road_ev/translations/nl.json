@@ -75,7 +75,8 @@
           "person": "Persoon (om te herkennen dat jij de paal zelf bezet)",
           "expire_hours": "Laadwens automatisch uitzetten na",
           "min_free_minutes": "Pas melden als hij minstens zo lang vrij is",
-          "notify_price_change": "Melden als de prijs van deze paal verandert"
+          "notify_price_change": "Melden als de prijs van deze paal verandert",
+          "session_entity": "Mijn eigen laadsessies weglaten (sessie-sensor)"
         },
         "data_description": {
           "notify_targets": "Telefoons met de Home Assistant app, of de meldingen in Home Assistant zelf.",
@@ -85,7 +86,8 @@
           "min_free_minutes": "Voorkomt valse meldingen als een socket maar heel even vrij is. 0 = meteen melden.",
           "disarm_others": "Handig als je meerdere palen tegelijk volgt: je krijgt één melding voor de eerste die vrij komt, en de andere bellen gaan uit.",
           "android_auto": "Laat de laadwens-meldingen ook op het scherm in je auto zien. De Home Assistant app moet zichtbaar zijn in het Android Auto menu. Zet dit niet aan met de 'Minimal' versie van de app: die crasht op deze meldingen.",
-          "notify_price_change": "Prijs per kWh, starttarief of blokkeertarief. Wisselen tussen dag en nacht telt niet."
+          "notify_price_change": "Prijs per kWh, starttarief of blokkeertarief. Wisselen tussen dag en nacht telt niet.",
+          "session_entity": "Kies een sensor van een andere integratie die weet wanneer en waar je laadt, bijvoorbeeld de 'Charging status' sensor van Tap Electric (die moet een attribuut outlet_name hebben). Je eigen sessies tellen dan niet mee in het 'meestal vrij'-weekoverzicht, ook die uit het verleden, zo ver als de geschiedenis van Home Assistant teruggaat."
         }
       }
     }

@@ -20,6 +20,7 @@ from homeassistant.loader import async_get_integration
 from .api import RoadApiClient
 from .const import CARD_URL, CONF_LOCATION_ID, DOMAIN
 from .coordinator import RoadDataUpdateCoordinator, location_gone_issue_id
+from .own_stats import RoadOwnSessionStats
 from .price_watch import RoadPriceWatcher, storage_key
 from .watcher import RoadWatcher
 
@@ -39,6 +40,7 @@ class RoadData:
 
     coordinator: RoadDataUpdateCoordinator
     watcher: RoadWatcher
+    own_stats: RoadOwnSessionStats
 
 
 type RoadConfigEntry = ConfigEntry[RoadData]
@@ -63,9 +65,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: RoadConfigEntry) -> bool
     watcher = RoadWatcher(hass, entry, coordinator)
     watcher.async_start()
     await RoadPriceWatcher(hass, entry, coordinator, watcher).async_start()
+    own_stats = RoadOwnSessionStats(hass, entry, coordinator, watcher)
 
-    entry.runtime_data = RoadData(coordinator=coordinator, watcher=watcher)
+    entry.runtime_data = RoadData(
+        coordinator=coordinator, watcher=watcher, own_stats=own_stats
+    )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    own_stats.async_start()
+
+    # Andere sessie-entiteit gekozen? Dan opnieuw laden, zodat alles opnieuw
+    # wordt uitgerekend. Andere opties werken direct, zonder herladen.
+    session_entity = own_stats.session_entity
+
+    async def _options_updated(hass: HomeAssistant, entry: RoadConfigEntry) -> None:
+        if entry.runtime_data.own_stats.session_entity != session_entity:
+            hass.config_entries.async_schedule_reload(entry.entry_id)
+
+    entry.async_on_unload(entry.add_update_listener(_options_updated))
     return True
 
 
