@@ -91,6 +91,7 @@ class RoadOwnSessionStats:
         self.last_run: datetime | None = None
         self.last_hours_written = 0
         self.last_hours_corrected = 0
+        self.last_chance_hours = 0
 
     @property
     def session_entity(self) -> str | None:
@@ -151,8 +152,6 @@ class RoadOwnSessionStats:
             {"mean"},
         )
         rows = [r for r in base.get(free_entity, []) if r.get("mean") is not None]
-        if not rows:
-            return
 
         def _start(row: dict[str, Any]) -> datetime:
             value = row["start"]
@@ -160,11 +159,13 @@ class RoadOwnSessionStats:
                 return value
             return dt_util.utc_from_timestamp(float(value))
 
-        first_hour = _start(rows[0])
+        # Geschiedenis vanaf het begin van het venster: de kans op plek komt
+        # uit de socket-statussen zelf, dus die kan verder terug dan de
+        # "Vrije sockets" statistiek (zo ver als de geschiedenis van HA gaat).
         states = await recorder.async_add_executor_job(
             lambda: history.get_significant_states(
                 self.hass,
-                first_hour - timedelta(hours=1),
+                start,
                 last_complete + timedelta(hours=1),
                 [e for e in (session_entity, *socket_entities.values()) if e],
                 None,
@@ -189,9 +190,15 @@ class RoadOwnSessionStats:
         fractions = hourly_fractions(intervals, hours)
         total = len(sockets) or None
 
-        # Kans op een vrije socket (per minuut bemonsterd): voor elke laadpaal.
+        # Kans op een vrije socket (per minuut bemonsterd): voor elke laadpaal,
+        # voor elk uur in het venster waarvan de socket-statussen bekend zijn.
+        all_hours: list[datetime] = []
+        hour = start
+        while hour <= last_complete:
+            all_hours.append(hour)
+            hour += timedelta(hours=1)
         chance = await self.hass.async_add_executor_job(
-            free_chance, socket_states, intervals, hours
+            free_chance, socket_states, intervals, all_hours
         )
         if chance:
             async_add_external_statistics(
@@ -202,7 +209,8 @@ class RoadOwnSessionStats:
                 [StatisticData(start=h, mean=v) for h, v in sorted(chance.items())],
             )
         self.last_run = now
-        if not session_entity:
+        self.last_chance_hours = len(chance)
+        if not session_entity or not rows:
             return
 
         data = [
@@ -264,4 +272,5 @@ class RoadOwnSessionStats:
             "last_run": self.last_run.isoformat() if self.last_run else None,
             "hours_written": self.last_hours_written,
             "hours_corrected": self.last_hours_corrected,
+            "chance_hours": self.last_chance_hours,
         }
