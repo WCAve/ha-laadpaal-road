@@ -18,6 +18,7 @@ blijft onaangeroerd.
 
 from __future__ import annotations
 
+import bisect
 import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
@@ -172,3 +173,48 @@ def corrected_mean(base_mean: float, mine: float, total: int | None) -> float:
     if total:
         value = min(value, float(total))
     return round(value, 4)
+
+
+UNKNOWN_STATES = {"unavailable", "unknown", ""}
+_MIN_KNOWN_MINUTES = 30
+
+
+def free_chance(
+    socket_rows: dict[int, Sequence[StateLike]],
+    mine: Sequence[Interval],
+    hours: Iterable[datetime],
+) -> dict[datetime, float]:
+    """Per uur het deel van de tijd dat er minstens één socket vrij was.
+
+    Bemonsterd per minuut. Een socket die jij bezette telt als vrij (zonder
+    jou was hij dat geweest). Minuten waarin een socket een onbekende status
+    had (bv. API plat) tellen niet mee; met minder dan 30 bekende minuten
+    krijgt het uur geen waarde.
+    """
+    timelines: list[tuple[list[datetime], list[str]]] = []
+    for rows in socket_rows.values():
+        ordered = sorted(rows, key=lambda r: r.last_changed)
+        timelines.append(
+            ([r.last_changed for r in ordered], [r.state for r in ordered])
+        )
+    if not timelines:
+        return {}
+
+    result: dict[datetime, float] = {}
+    for hour in hours:
+        known = free = 0
+        for minute in range(60):
+            moment = hour + timedelta(minutes=minute, seconds=30)
+            mine_now = any(i.start <= moment < i.end for i in mine)
+            states: list[str] = []
+            for times, values in timelines:
+                pos = bisect.bisect_right(times, moment) - 1
+                states.append(values[pos] if pos >= 0 else "")
+            if any(state in UNKNOWN_STATES for state in states):
+                continue
+            known += 1
+            if mine_now or any(state not in BUSY_STATES for state in states):
+                free += 1
+        if known >= _MIN_KNOWN_MINUTES:
+            result[hour] = round(free / known, 4)
+    return result

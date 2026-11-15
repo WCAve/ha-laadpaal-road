@@ -1,4 +1,11 @@
-"""Schrijft de statistiek "vrij zonder mij" (zie own_sessions.py).
+"""Schrijft de eigen statistieken (zie own_sessions.py).
+
+Voor elke laadpaal:
+* ``kans_vrij``: per uur het deel van de tijd dat er minstens één socket vrij
+  was (met sessie-sensor: zonder je eigen sessies). Voor het laadadvies.
+Alleen met een sessie-sensor:
+* ``vrij_zonder_mij``: gemiddeld vrij, zonder je eigen sessies.
+* ``mijn_sessies``: deel van het uur dat je er zelf stond.
 
 * Bij het opstarten (of na het kiezen van een sessie-entiteit): alles
   opnieuw uitrekenen vanaf het eerste uur waarvoor "Vrije sockets" statistiek
@@ -29,7 +36,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import CONF_SESSION_ENTITY, DOMAIN
 from .data import evses
-from .own_sessions import corrected_mean, hourly_fractions, my_intervals
+from .own_sessions import corrected_mean, free_chance, hourly_fractions, my_intervals
 
 try:  # HA 2025.x+: mean_type vervangt has_mean
     from homeassistant.components.recorder.models import StatisticMeanType
@@ -51,6 +58,11 @@ RECENT_WINDOW = timedelta(hours=24)
 def statistic_id(entry_id: str) -> str:
     """Id van de eigen statistiek voor één laadpaal."""
     return f"{DOMAIN}:vrij_zonder_mij_{entry_id.lower()}"
+
+
+def chance_statistic_id(entry_id: str) -> str:
+    """Id van de statistiek "kans op een vrije socket" (0-1)."""
+    return f"{DOMAIN}:kans_vrij_{entry_id.lower()}"
 
 
 def mine_statistic_id(entry_id: str) -> str:
@@ -75,6 +87,7 @@ class RoadOwnSessionStats:
         self.watcher = watcher
         self.statistic_id = statistic_id(entry.entry_id)
         self.mine_statistic_id = mine_statistic_id(entry.entry_id)
+        self.chance_statistic_id = chance_statistic_id(entry.entry_id)
         self.last_run: datetime | None = None
         self.last_hours_written = 0
         self.last_hours_corrected = 0
@@ -87,8 +100,6 @@ class RoadOwnSessionStats:
     @callback
     def async_start(self) -> None:
         """Eén keer alles bijwerken, daarna elk uur."""
-        if not self.session_entity:
-            return
         self.entry.async_create_background_task(
             self.hass, self.async_update(full=True), f"{DOMAIN} own sessions backfill"
         )
@@ -111,7 +122,7 @@ class RoadOwnSessionStats:
         session_entity = self.session_entity
         location = self.coordinator.location_id
         free_entity = self._entity_id(f"road_{location}_free_sockets")
-        if not session_entity or not free_entity:
+        if not free_entity:
             return
 
         sockets = evses(self.coordinator.data)
@@ -155,7 +166,7 @@ class RoadOwnSessionStats:
                 self.hass,
                 first_hour - timedelta(hours=1),
                 last_complete + timedelta(hours=1),
-                [session_entity, *socket_entities.values()],
+                [e for e in (session_entity, *socket_entities.values()) if e],
                 None,
                 True,  # include_start_time_state
                 False,  # significant_changes_only: ook attribuut-wijzigingen
@@ -163,14 +174,36 @@ class RoadOwnSessionStats:
                 False,  # no_attributes
             )
         )
-        intervals = my_intervals(
-            states.get(session_entity, []),
-            {i: states.get(e, []) for i, e in socket_entities.items()},
-            sockets,
-            last_complete + timedelta(hours=1),
+        socket_states = {i: states.get(e, []) for i, e in socket_entities.items()}
+        intervals = (
+            my_intervals(
+                states.get(session_entity, []),
+                socket_states,
+                sockets,
+                last_complete + timedelta(hours=1),
+            )
+            if session_entity
+            else []
         )
-        fractions = hourly_fractions(intervals, (_start(r) for r in rows))
+        hours = [_start(r) for r in rows]
+        fractions = hourly_fractions(intervals, hours)
         total = len(sockets) or None
+
+        # Kans op een vrije socket (per minuut bemonsterd): voor elke laadpaal.
+        chance = await self.hass.async_add_executor_job(
+            free_chance, socket_states, intervals, hours
+        )
+        if chance:
+            async_add_external_statistics(
+                self.hass,
+                self._metadata(
+                    self.chance_statistic_id, f"{self.entry.title} kans op plek"
+                ),
+                [StatisticData(start=h, mean=v) for h, v in sorted(chance.items())],
+            )
+        self.last_run = now
+        if not session_entity:
+            return
 
         data = [
             StatisticData(
@@ -196,7 +229,6 @@ class RoadOwnSessionStats:
             ],
         )
 
-        self.last_run = now
         self.last_hours_written = len(data)
         self.last_hours_corrected = len(fractions)
         _LOGGER.debug(
@@ -228,6 +260,7 @@ class RoadOwnSessionStats:
             "session_entity": self.session_entity,
             "statistic_id": self.statistic_id,
             "mine_statistic_id": self.mine_statistic_id,
+            "chance_statistic_id": self.chance_statistic_id,
             "last_run": self.last_run.isoformat() if self.last_run else None,
             "hours_written": self.last_hours_written,
             "hours_corrected": self.last_hours_corrected,
