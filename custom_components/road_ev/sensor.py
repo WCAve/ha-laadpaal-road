@@ -321,9 +321,13 @@ class RoadFreeSocketsSensor(RoadBaseEntity):
         return free_count(self.coordinator.data)
 
     @property
-    def extra_state_attributes(self) -> dict[str, int]:
-        """Totaal aantal sockets, voor de kaart."""
-        return {"totale_plekken": len(self.evses)}
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Totaal aantal sockets, en de statistiek zonder eigen sessies."""
+        attrs: dict[str, Any] = {"totale_plekken": len(self.evses)}
+        own = getattr(self.coordinator.config_entry.runtime_data, "own_stats", None)
+        if own is not None and own.session_entity:
+            attrs["statistiek_zonder_mij"] = own.statistic_id
+        return attrs
 
 
 class RoadSocketBaseSensor(RoadBaseEntity):

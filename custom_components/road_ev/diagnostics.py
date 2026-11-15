@@ -52,5 +52,6 @@ async def async_get_config_entry_diagnostics(
             "notified": watcher._notified,  # noqa: SLF001
             "follow_up_until": iso(watcher._follow_until),  # noqa: SLF001
         },
+        "zonder_mij": entry.runtime_data.own_stats.as_dict(),
         "api_data": coordinator.data,
     }

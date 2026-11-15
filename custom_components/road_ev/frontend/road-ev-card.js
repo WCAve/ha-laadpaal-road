@@ -16,7 +16,7 @@
  */
 
 const DOMAIN = "road_ev";
-const CARD_VERSION = "2.9.0";
+const CARD_VERSION = "2.10.0";
 
 const DEFAULTS = {
   title: "Laadpalen",
@@ -214,6 +214,9 @@ class RoadEvCard extends HTMLElement {
         free,
         statusText: unavailable ? "Niet bereikbaar" : avail.state,
         price: price && !isUnavailable(price) ? Number(price.state) : null,
+        // Statistiek zonder eigen laadsessies (als ingesteld), anders de gewone.
+        statsId: (c.free_sockets && hass.states[c.free_sockets]?.attributes?.statistiek_zonder_mij) || c.free_sockets,
+        statsWithoutMe: Boolean(c.free_sockets && hass.states[c.free_sockets]?.attributes?.statistiek_zonder_mij),
         startFee: Number(price?.attributes?.starttarief || 0),
         timeFee: Number(price?.attributes?.tijdtarief_bij_start || 0),
         maxKw: Number(price?.attributes?.max_vermogen_kw || 0),
@@ -347,7 +350,7 @@ class RoadEvCard extends HTMLElement {
   }
 
   _statsHtml(r) {
-    const entry = this._stats[r.free_sockets];
+    const entry = this._stats[r.statsId];
     if (!entry || entry.status === "loading") {
       return `<div class="stats muted">Statistiek laden…</div>`;
     }
@@ -380,7 +383,7 @@ class RoadEvCard extends HTMLElement {
 
     return `
       <div class="stats">
-        <div class="stats-summary">${summary} <span class="muted">Op basis van ${days} ${days === 1 ? "dag" : "dagen"}.</span></div>
+        <div class="stats-summary">${summary} <span class="muted">Op basis van ${days} ${days === 1 ? "dag" : "dagen"}${r.statsWithoutMe ? ", zonder je eigen laadsessies" : ""}.</span></div>
         <div class="heatmap"><div></div>${hours}${rowsHtml}</div>
         <div class="legend muted">
           <span class="swatch" style="background:${heatColor(0)}"></span>vol
@@ -470,7 +473,7 @@ class RoadEvCard extends HTMLElement {
       } else {
         this._expanded.add(row.deviceId);
         this._render();
-        this._loadStats(row.free_sockets);
+        this._loadStats(row.statsId);
       }
       return;
     }

@@ -43,6 +43,7 @@ CONF_PERSON: Final = "person"
 CONF_DISARM_OTHERS: Final = "disarm_others"
 CONF_ANDROID_AUTO: Final = "android_auto"
 CONF_NOTIFY_PRICE_CHANGE: Final = "notify_price_change"
+CONF_SESSION_ENTITY: Final = "session_entity"
 
 DEFAULT_OPTIONS: Final[dict] = {
     CONF_NOTIFY_TARGETS: [],

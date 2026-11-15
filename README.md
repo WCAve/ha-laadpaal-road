@@ -56,6 +56,7 @@ De kaart toont al je palen met status, prijs en afstand tot thuis. Tik op een pa
 - **Tarieven**: naast de kWh-prijs staat een eventueel starttarief ("€0,67/kWh + €0,35 start"), en een oranje regel als er een blokkeertarief is ("na 5 u €3,00/u (07:00–23:00)"). Die laatste is degene waar je op moet letten als je je auto er een nachtje laat staan. Of eigenlijk: een dagje.
 - **Eerste vrije** (rechtsboven): zet de bel aan op alle palen op de kaart. De eerste die vrij komt stuurt een melding en de rest gaat uit. Voor als het je niet uitmaakt wáár je laadt, als het maar ergens kan.
 - **📊 per paal**: een weekoverzicht van wanneer die paal meestal vrij is, per uur, op basis van de afgelopen 4 weken. Home Assistant begint pas met tellen na deze update, dus de eerste dagen is dat overzicht nog wat leeg. Geduld.
+  - **Zonder je eigen sessies**: sta je zelf vaak aan een paal, dan ziet die er in het overzicht voller uit dan hij is. Kies bij **Configureren** een sessie-sensor van een integratie die weet waar je laadt (bijvoorbeeld de "Charging status" sensor van Tap Electric, met het attribuut `outlet_name`). Je eigen sessies tellen dan niet meer mee, ook die uit het verleden, zo ver als de geschiedenis van Home Assistant teruggaat. Begin en eind komen van de status van de socket zelf, dus het maakt niet uit als die andere integratie pas laat bijwerkt. Home Assistant's eigen statistiek blijft onaangeroerd; dit komt in een aparte reeks.
 
 Of in YAML, voor wie dat leuk vindt:
 
@@ -91,6 +92,7 @@ Zet de 🔔 aan bij een paal, op de kaart of met `switch.<paal>_laadwens`, en je
 | Mijn andere laadwensen uitzetten zodra deze paal vrij is | aan | Volg je meerdere palen, dan krijg je één melding voor de eerste die vrij komt |
 | Ook op Android Auto tonen | uit | De laadwens-meldingen verschijnen ook op het scherm in je auto. De Home Assistant app moet zichtbaar zijn in het Android Auto menu, en zet dit **niet** aan met de "Minimal" versie van de app: die crasht erop |
 | Melden als de prijs van deze paal verandert | aan | Zie hieronder |
+| Mijn eigen laadsessies weglaten | – | Sessie-sensor voor het "meestal vrij"-overzicht, zie [De kaart](#de-kaart) |
 
 Een nieuwe paal neemt de instellingen van je vorige paal over. Met de knop **Testmelding** op het apparaat check je of alles werkt, in plaats van te wachten tot er echt een plek vrijkomt.
 

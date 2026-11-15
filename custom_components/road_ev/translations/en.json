@@ -75,7 +75,8 @@
           "person": "Person (to recognise that you took the charger yourself)",
           "expire_hours": "Turn the charge wish off automatically after",
           "min_free_minutes": "Only notify when free for at least",
-          "notify_price_change": "Notify me when this charger's price changes"
+          "notify_price_change": "Notify me when this charger's price changes",
+          "session_entity": "Leave out my own charging sessions (session sensor)"
         },
         "data_description": {
           "notify_targets": "Phones with the Home Assistant app, or the notification area in Home Assistant itself.",
@@ -85,7 +86,8 @@
           "min_free_minutes": "Prevents false alarms when a socket is only briefly free. 0 = notify straight away.",
           "disarm_others": "Handy when you follow several chargers at once: you get one notification for the first one that frees up, and the other bells turn off.",
           "android_auto": "Shows the charge wish notifications on your car screen too. The Home Assistant app must be visible in the Android Auto launcher. Don't turn this on with the 'Minimal' version of the app: it crashes on these notifications.",
-          "notify_price_change": "Price per kWh, start fee or blocking fee. Day/night switches don't count."
+          "notify_price_change": "Price per kWh, start fee or blocking fee. Day/night switches don't count.",
+          "session_entity": "Pick a sensor from another integration that knows when and where you charge, e.g. the Tap Electric 'Charging status' sensor (it needs an outlet_name attribute). Your own sessions are then left out of the 'usually free' week overview, including your past sessions as far back as Home Assistant's history goes."
         }
       }
     }
